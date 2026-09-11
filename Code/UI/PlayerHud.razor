@@ -1,0 +1,249 @@
+@using System
+@using System.Linq
+@using Sandbox
+@using Sandbox.UI
+@inherits PanelComponent
+
+<root>
+	<div class="hurt" style="opacity: @HurtFlash;"></div>
+
+	<div class="hud">
+
+		<div class="row">
+			<label class="key">HEALTH</label>
+			<div class="bar"><div class="fill health" style="width: @(HealthFraction * 100f)%;"></div></div>
+			<label class="val">@HealthText</label>
+		</div>
+
+		<div class="row">
+			<label class="key">STAMINA</label>
+			<div class="bar"><div class="fill @(Winded ? "winded" : "stamina")" style="width: @(StaminaFraction * 100f)%;"></div></div>
+			<label class="val">@StaminaText</label>
+		</div>
+
+		<div class="row">
+			<label class="key">HANDS</label>
+			<label class="val wide">@HoldingText</label>
+		</div>
+
+		<div class="row">
+			<label class="key">ACTION</label>
+			<label class="val wide">@ActionText</label>
+		</div>
+
+		<div class="row">
+			<label class="key">STANDING</label>
+			<label class="val wide">@EnemyText</label>
+		</div>
+
+		@if ( KnockedOut )
+		{
+			<div class="row">
+				<label class="ko">KNOCKED OUT</label>
+			</div>
+		}
+
+	</div>
+</root>
+
+<style>
+	PlayerHud {
+		position: absolute;
+		top: 0px;
+		left: 0px;
+		width: 100%;
+		height: 100%;
+		font-family: Consolas, monospace;
+		font-size: 15px;
+		color: white;
+		pointer-events: none;
+	}
+
+	.hurt {
+		position: absolute;
+		top: 0px;
+		left: 0px;
+		width: 100%;
+		height: 100%;
+		background-color: rgba(190, 30, 30, 0.4);
+	}
+
+	.ko {
+		color: #e0483c;
+	}
+
+	.hud {
+		position: absolute;
+		top: 24px;
+		left: 24px;
+		flex-direction: column;
+		background-color: rgba(0, 0, 0, 0.55);
+		padding: 12px 16px;
+		border-radius: 4px;
+	}
+
+	.row {
+		flex-direction: row;
+		align-items: center;
+		height: 22px;
+	}
+
+	.key {
+		width: 90px;
+		color: rgba(255, 255, 255, 0.55);
+	}
+
+	.bar {
+		width: 180px;
+		height: 10px;
+		background-color: rgba(255, 255, 255, 0.15);
+		margin-right: 10px;
+	}
+
+	.fill {
+		height: 100%;
+	}
+
+	.health { background-color: #e0483c; }
+	.stamina { background-color: #e8d24a; }
+	.winded { background-color: #8a5a2a; }
+
+	.val {
+		width: 110px;
+	}
+
+	.val.wide {
+		width: 300px;
+	}
+</style>
+
+@code {
+	[Property, Description( "Optional. Found automatically from whatever has RBPlayerMovement on it." )]
+	public GameObject Player { get; set; }
+
+	Health health;
+	PlayerHealth playerHealth;
+	RBPlayerMovement movement;
+	Sliding sliding;
+	Stamina stamina;
+	PlayerGrab grab;
+	PlayerCombat combat;
+
+	protected override void OnStart() => Rebind();
+
+	protected override void OnUpdate()
+	{
+		// the player may not exist yet on the first frame, or may get rebuilt while testing
+		if ( !Player.IsValid() )
+			Rebind();
+	}
+
+	void Rebind()
+	{
+		Player ??= Scene.GetAllComponents<RBPlayerMovement>().FirstOrDefault()?.GameObject;
+
+		if ( !Player.IsValid() )
+			return;
+
+		var search = FindMode.Enabled | FindMode.InSelf | FindMode.InDescendants;
+
+		health = Player.Components.Get<Health>( search );
+		playerHealth = Player.Components.Get<PlayerHealth>( search );
+		movement = Player.Components.Get<RBPlayerMovement>( search );
+		sliding = Player.Components.Get<Sliding>( search );
+		stamina = Player.Components.Get<Stamina>( search );
+		grab = Player.Components.Get<PlayerGrab>( search );
+		combat = Player.Components.Get<PlayerCombat>( search );
+	}
+
+	float HealthFraction => health.IsValid() ? health.Fraction : 0f;
+	bool KnockedOut => playerHealth.IsValid() && playerHealth.IsKnockedOut;
+
+	// in first person you never see yourself get hit, so the screen has to say it
+	float HurtFlash
+	{
+		get
+		{
+			if ( KnockedOut )
+				return 0.55f;
+
+			if ( !playerHealth.IsValid() )
+				return 0f;
+
+			return MathF.Max( 0f, 1f - playerHealth.TimeSinceHurt / 0.4f );
+		}
+	}
+	float StaminaFraction => stamina.IsValid() ? stamina.Fraction : 0f;
+	bool Winded => stamina.IsValid() && stamina.IsExhausted;
+
+	string HealthText => health.IsValid()
+		? $"{health.CurrentHealth:0} / {health.MaxHealth:0}"
+		: "no Health";
+
+	string StaminaText => stamina.IsValid()
+		? ( Winded ? $"{stamina.Current:0} WINDED" : $"{stamina.Current:0} / {stamina.MaxStamina:0}" )
+		: "no Stamina";
+
+	string HoldingText => !grab.IsValid()
+		? "no PlayerGrab"
+		: grab.IsHolding ? grab.Held.GameObject.Name : "empty";
+
+	string ActionText
+	{
+		get
+		{
+			if ( KnockedOut )
+				return "on the floor";
+
+			// The dodge is gone — dash, slide and the rest are separate components now, so the
+			// readout reports which one currently owns your velocity. Worth more than "dodging"
+			// ever was while tuning: when the movement feels wrong, this says who to blame.
+			if ( movement.IsValid() )
+			{
+				if ( movement.IsGroundPounding ) return "pounding";
+				if ( movement.IsGrindingNow ) return "grinding";
+				if ( sliding.IsValid() && sliding.sliding ) return "sliding";
+				if ( movement.InSpecialMovement ) return "airborne";
+			}
+
+			if ( !combat.IsValid() )
+				return "no PlayerCombat";
+
+			if ( grab.IsValid() && grab.IsHolding )
+				return "holding — E throws";
+
+			return combat.IsAttacking ? combat.CurrentAttack.ToString().ToLower() : "ready";
+		}
+	}
+
+	string EnemyText
+	{
+		get
+		{
+			var enemies = Scene.GetAllComponents<Enemy>().ToList();
+			int alive = enemies.Count( e => e.State != EnemyState.Dead );
+			int staggered = enemies.Count( e => e.State == EnemyState.Staggered );
+
+			// swinging vs circling is the whole point of the director, so it belongs on screen where
+			// you can see whether the turn-taking is actually doing anything
+			int swinging = enemies.Count( e => e.State is EnemyState.Engaging or EnemyState.Windup or EnemyState.Recover );
+
+			string text = $"{alive} up, {swinging} swinging";
+
+			if ( staggered > 0 )
+				text += $", {staggered} down";
+
+			return text;
+		}
+	}
+
+	protected override int BuildHash() => System.HashCode.Combine(
+		(int)( HealthFraction * 100f ),
+		(int)( StaminaFraction * 100f ),
+		(int)( HurtFlash * 20f ),
+		KnockedOut,
+		Winded,
+		HoldingText,
+		ActionText,
+		EnemyText );
+}
