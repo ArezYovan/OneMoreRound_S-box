@@ -1,0 +1,20 @@
+# Line endings: stored LF in the repo, checked out CRLF, as .editorconfig asks. Pinned here so it
+# doesn't depend on whichever Git install happens to set core.autocrlf system-wide.
+* text=auto eol=crlf
+
+# Never convert these. A .scene_d holds the scene's mesh blobs - the level geometry itself; the
+# .scene JSON only points into it by GUID - so a single CRLF substitution corrupts the level.
+# Git's binary sniffing catches them today; this makes it a rule instead of a guess. *.*_d mirrors
+# the *.*_c rule in .gitignore, so any other resource's blob sidecar is covered too.
+*.*_d  binary
+
+# Source art and audio.
+*.fbx  binary
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.tga  binary
+*.psd  binary
+*.wav  binary
+*.mp3  binary
+*.ogg  binary
