@@ -63,7 +63,11 @@ public sealed class WallRunning : Component
 		playerMovement = GameObject.GetComponent<RBPlayerMovement>();
 		grapple = GameObject.GetComponent<GrappleGun>();
 		orientation = playerMovement.Orientation;
-		camMovement ??= GameObject.Root.Components.Get<CameraMovement>( FindMode.EverythingInSelfAndDescendants );
+	}
+
+	protected override void OnStart()
+	{
+		camMovement ??= CameraMovement.Find( GameObject );
 	}
 
 	protected override void OnUpdate()
@@ -103,8 +107,8 @@ public sealed class WallRunning : Component
 			if ( !IsWallRunning ) StartWallRun();
 
 			// Re-requested every frame we're on the wall; eases off when we stop asking.
-			camMovement.RequestFov( WallRunFov );
-			camMovement.RequestTilt( wallRight ? -WallRunTilt : WallRunTilt );
+			camMovement?.RequestFov( WallRunFov );
+			camMovement?.RequestTilt( wallRight ? -WallRunTilt : WallRunTilt );
 
 			if ( WallRunTimer > 0 ) WallRunTimer -= Time.Delta;
 			if ( WallRunTimer <= 0 ) StopWallRun();

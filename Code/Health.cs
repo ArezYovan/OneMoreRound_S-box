@@ -26,6 +26,15 @@ public sealed class Health : Component
 	/// <summary>Code-side hook: the amount actually taken, and who dealt it (may be null).</summary>
 	public Action<float, GameObject> OnDamaged;
 
+	/// <summary>
+	/// Where the hit OnDamaged is reporting landed. Set just before it fires, so read it from inside a
+	/// handler; zero for damage that didn't come from anywhere in particular.
+	/// </summary>
+	public Vector3 LastHitPosition { get; private set; }
+
+	/// <summary>Which way that hit was travelling, normalized. Zero if whoever dealt it didn't say.</summary>
+	public Vector3 LastHitDirection { get; private set; }
+
 	public bool IsDead => CurrentHealth <= 0f;
 
 	/// <summary>0–1, for health bars.</summary>
@@ -46,7 +55,7 @@ public sealed class Health : Component
 			GameObject.Destroy();
 	}
 
-	public void TakeDamage( float amount, GameObject attacker = null, Vector3 hitPosition = default )
+	public void TakeDamage( float amount, GameObject attacker = null, Vector3 hitPosition = default, Vector3 hitDirection = default )
 	{
 		if ( amount <= 0f )
 			return;
@@ -68,6 +77,9 @@ public sealed class Health : Component
 			string from = attacker.IsValid() ? attacker.Name : "unknown";
 			Log.Info( $"[Health] {GameObject.Name} took {taken:0.#} from {from} — {CurrentHealth:0.#}/{MaxHealth:0.#}" );
 		}
+
+		LastHitPosition = hitPosition;
+		LastHitDirection = hitDirection.IsNearlyZero() ? Vector3.Zero : hitDirection.Normal;
 
 		OnDamaged?.Invoke( taken, attacker );
 

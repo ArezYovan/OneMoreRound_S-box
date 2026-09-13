@@ -23,7 +23,7 @@
 					m_sNote = ""
 					m_tagSpans = [  ]
 					m_sequenceName = "Punch"
-					m_playbackSpeed = 1.0
+					m_playbackSpeed = 1.5
 					m_bLoop = false
 				}
 			},
@@ -66,7 +66,7 @@
 											}
 										},
 									]
-									m_blendDuration = 0.2
+									m_blendDuration = 0.05
 									m_destState = 
 									{
 										m_id = 648208642
@@ -121,17 +121,10 @@
 									m_conditions = 
 									[
 										{
-											_class = "CParameterAnimCondition"
+											_class = "CFinishedCondition"
 											m_comparisonOp = 0
-											m_paramID = 
-											{
-												m_id = 639770803
-											}
-											m_comparisonValue = 
-											{
-												m_nType = 1
-												m_data = false
-											}
+											m_option = "FinishedConditionOption_OnFinished"
+											m_bIsFinished = true
 										},
 									]
 									m_blendDuration = 0.2
@@ -180,6 +173,34 @@
 							m_bIsRootMotionExclusive = false
 							m_bAlwaysEvaluate = false
 						},
+						{
+							_class = "CAnimState"
+							m_transitions = [  ]
+							m_tags = [  ]
+							m_tagBehaviors = [  ]
+							m_name = "Punch2"
+							m_inputConnection = 
+							{
+								m_nodeID = 
+								{
+									m_id = 4294967295
+								}
+								m_outputID = 
+								{
+									m_id = 4294967295
+								}
+							}
+							m_stateID = 
+							{
+								m_id = 1338491118
+							}
+							m_position = [ 176.0, 160.0 ]
+							m_bIsStartState = false
+							m_bIsEndtState = false
+							m_bIsPassthrough = false
+							m_bIsRootMotionExclusive = false
+							m_bAlwaysEvaluate = false
+						},
 					]
 					m_bBlockWaningTags = false
 					m_bLockStateWhenWaning = false
@@ -194,7 +215,7 @@
 				{
 					_class = "CSequenceAnimNode"
 					m_sName = "Idle"
-					m_vecPosition = [ -134.0, -79.0 ]
+					m_vecPosition = [ -128.0, -80.0 ]
 					m_nNodeID = 
 					{
 						m_id = 1737886813
@@ -250,7 +271,7 @@
 				}
 				m_previewButton = "ANIMPARAM_BUTTON_NONE"
 				m_bUseMostRecentValue = false
-				m_bAutoReset = false
+				m_bAutoReset = true
 				m_bDefaultValue = false
 			},
 		]

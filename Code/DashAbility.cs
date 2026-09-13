@@ -71,7 +71,7 @@ public sealed class DashAbility : Component
 
 	protected override void OnStart()
 	{
-		cameraMovement ??= GameObject.Root.Components.Get<CameraMovement>( FindMode.EverythingInSelfAndDescendants );
+		cameraMovement ??= CameraMovement.Find( GameObject );
 	}
 
 	protected override void OnUpdate()

@@ -1,0 +1,162 @@
+@using System
+@using System.Linq
+@using Sandbox
+@using Sandbox.UI
+@inherits PanelComponent
+
+<root>
+	@if ( Run.IsValid() )
+	{
+		<div class="run">
+			<div class="run-bar">
+				<label class="cell">@RoundText</label>
+				<label class="cell @(Run.IsCovered ? "covered" : "")">@MoneyText</label>
+				@if ( Run.Phase == RunPhase.Fighting )
+				{
+					<label class="cell dim">@FightText</label>
+				}
+			</div>
+		</div>
+
+		@if ( BannerTitle is not null )
+		{
+			<div class="banner">
+				<label class="title @TitleClass">@BannerTitle</label>
+				@if ( BannerDetail is not null )
+				{
+					<label class="detail">@BannerDetail</label>
+				}
+			</div>
+		}
+	}
+</root>
+
+<style>
+	RunHud {
+		position: absolute;
+		top: 0px;
+		left: 0px;
+		width: 100%;
+		height: 100%;
+		font-family: Consolas, monospace;
+		color: white;
+		pointer-events: none;
+	}
+
+	.run {
+		position: absolute;
+		top: 24px;
+		left: 0px;
+		width: 100%;
+		flex-direction: row;
+		justify-content: center;
+	}
+
+	.run-bar {
+		flex-direction: row;
+		align-items: center;
+		background-color: rgba(0, 0, 0, 0.55);
+		padding: 8px 6px;
+		border-radius: 4px;
+		font-size: 18px;
+	}
+
+	.cell {
+		margin: 0px 14px;
+	}
+
+	.dim {
+		color: rgba(255, 255, 255, 0.6);
+	}
+
+	.covered {
+		color: #7fd17f;
+	}
+
+	.banner {
+		position: absolute;
+		top: 32%;
+		left: 0px;
+		width: 100%;
+		flex-direction: column;
+		align-items: center;
+	}
+
+	.title {
+		font-size: 56px;
+		font-weight: bold;
+		text-shadow: 0px 2px 8px rgba(0, 0, 0, 0.8);
+	}
+
+	.title.good {
+		color: #7fd17f;
+	}
+
+	.title.bad {
+		color: #e0483c;
+	}
+
+	.detail {
+		font-size: 20px;
+		margin-top: 10px;
+		padding: 6px 14px;
+		background-color: rgba(0, 0, 0, 0.55);
+		border-radius: 4px;
+	}
+</style>
+
+@code {
+	RunManager run;
+
+	// found lazily rather than wired up, so dropping this on the HUD object is the whole setup
+	RunManager Run => run.IsValid() ? run : ( run = Scene.GetAllComponents<RunManager>().FirstOrDefault() );
+
+	int WaveSize => Run.Spawner.IsValid() ? Run.Spawner.WaveSizeFor( Run.Round ) : 0;
+	int Remaining => Run.Spawner.IsValid() ? Run.Spawner.Remaining : 0;
+
+	string RoundText => $"ROUND {Math.Max( 1, Run.Round )} / {Run.Rounds}";
+	string MoneyText => $"${Run.Money} / ${Run.Tab}";
+	string FightText => $"{Clock( Run.RoundTime )}  ·  {Remaining} left";
+
+	string TitleClass => Run.Phase switch
+	{
+		RunPhase.Paid or RunPhase.Won => "good",
+		RunPhase.Down or RunPhase.Banned => "bad",
+		_ => ""
+	};
+
+	string BannerTitle => Run.Phase switch
+	{
+		RunPhase.Starting => Run.IsLastRound ? "LAST ROUND" : $"ROUND {Run.Round}",
+		RunPhase.Paid => "CLEARED",
+		RunPhase.Down => "KNOCKED OUT",
+		RunPhase.Shop => "THE BAR",
+		RunPhase.Won => "TAB SETTLED",
+		RunPhase.Banned => "BANNED",
+		_ => null
+	};
+
+	string BannerDetail => Run.Phase switch
+	{
+		RunPhase.Starting => WaveSize > 0 ? $"{WaveSize} coming through the door" : null,
+		RunPhase.Paid => $"+${Run.LastPayout}    cleared in {Clock( Run.RoundTime )}",
+		RunPhase.Down => "this round pays nothing",
+		RunPhase.Shop => Run.IsCovered
+			? "SPACE  next round      E  settle up and walk out"
+			: $"SPACE  next round      ${Run.Short} short of the tab",
+		RunPhase.Won => $"${Run.Money - Run.Tab} in your pocket      SPACE  another night",
+		RunPhase.Banned => $"${Run.Money} of ${Run.Tab} at closing      SPACE  try again",
+		_ => null
+	};
+
+	static string Clock( float seconds ) => $"{(int)( seconds / 60f )}:{(int)( seconds % 60f ):00}";
+
+	protected override int BuildHash() => !Run.IsValid() ? 0 : System.HashCode.Combine(
+		Run.Phase,
+		Run.Round,
+		Run.Money,
+		(int)Run.RoundTime,
+		Remaining,
+		Run.LastPayout,
+		Run.IsCovered );
+}

@@ -64,6 +64,7 @@ public sealed class RBPlayerMovement : Component
 	public Vector3 Velocity => rb is not null ? rb.Velocity : Vector3.Zero;
 
 	[Header("GroundCheck")]
+	[Property] public float groundCheckDistance { get; set; } = 20f;
 	[Property] public bool isGrounded { get; set; }
 
 	Vector3 moveDirection;
@@ -75,6 +76,7 @@ public sealed class RBPlayerMovement : Component
 	WallClimb wallClimbComponent;
 	RailGrinding railGrindComponent;
 	GroundPound groundPoundComponent;
+	GrappleStrike strikeComponent;
 	float jumpBufferTimer;
 	float momentumTimer;
 	bool wasGroundedLast;
@@ -92,6 +94,10 @@ public sealed class RBPlayerMovement : Component
 
 	bool IsWallClimbingNow => wallClimbComponent is not null && wallClimbComponent.IsClimbing;
 
+	// True while GrappleStrike is yanking the player at its target. It owns velocity for the pull, the
+	// same as an attached grapple, so input steering and the extra fall weight both stand down.
+	bool IsStrikeReeling => strikeComponent is not null && strikeComponent.IsControllingPlayer;
+
 	// True while the rail-grind owns the player's velocity & gravity. Public so the other
 	// movement systems can stand down (mirrors IsWallRunning etc.).
 	public bool IsGrindingNow => railGrindComponent is not null && railGrindComponent.IsGrinding;
@@ -102,7 +108,7 @@ public sealed class RBPlayerMovement : Component
 	// True while any special movement state owns the player — so a plain air-jump (DoubleJump)
 	// shouldn't fire here (wall run/climb and grapple handle their own jumps; grind/hover/pound
 	// own vertical motion). Lets DoubleJump tell "normal air" apart from a special state.
-	public bool InSpecialMovement => IsWallRunningNow || IsWallClimbingNow || IsGrappling || IsGrindingNow || IsGroundPounding;
+	public bool InSpecialMovement => IsWallRunningNow || IsWallClimbingNow || IsGrappling || IsStrikeReeling || IsGrindingNow || IsGroundPounding;
 
 	[Property] public MovementState state;
 	public enum MovementState
@@ -124,6 +130,7 @@ public sealed class RBPlayerMovement : Component
 		wallClimbComponent = GameObject.GetComponent<WallClimb>();
 		railGrindComponent = GameObject.GetComponent<RailGrinding>();
 		groundPoundComponent = GameObject.GetComponent<GroundPound>();
+		strikeComponent = GameObject.GetComponent<GrappleStrike>();
 	}
 
 	// Lets another system (e.g. wall jump) consume a pending jump press so the same
@@ -281,7 +288,7 @@ public sealed class RBPlayerMovement : Component
 			if ( !slidingNow )
 				rb.ApplyForce( -Scene.PhysicsWorld.Gravity * rb.Mass );
 		}
-		else if ( !isGrounded && !IsWallRunningNow && !IsWallClimbingNow && !GrappleAttached && !IsGrindingNow && !IsGroundPounding )
+		else if ( !isGrounded && !IsWallRunningNow && !IsWallClimbingNow && !GrappleAttached && !IsStrikeReeling && !IsGrindingNow && !IsGroundPounding )
 		{
 			// Extra fall weight for snappy jumps — but NOT while wall running (it would
 			// fight wallRunGravityScale's gentle slide), wall climbing (it drives velocity
@@ -305,7 +312,7 @@ public sealed class RBPlayerMovement : Component
 
 		// Wall running, wall climbing, an attached grapple, and the grapple-strike reel each
 		// fully own velocity AND steering — applying input here too would fight them.
-		if ( IsWallRunningNow || IsWallClimbingNow || GrappleAttached || IsGrindingNow || IsGroundPounding ) return;
+		if ( IsWallRunningNow || IsWallClimbingNow || GrappleAttached || IsStrikeReeling || IsGrindingNow || IsGroundPounding ) return;
 
 		// Get inputs and direction
 		Vector3 input = Input.AnalogMove;
@@ -478,7 +485,7 @@ public sealed class RBPlayerMovement : Component
 		// ground steering/friction engaged while visibly airborne (the floaty, mushy feel)
 		// and made near-ground double-jump presses turn into buffered ground jumps.
 		return Scene.Trace
-			.Ray( WorldPosition, WorldPosition + Vector3.Down * 14f )
+			.Ray( WorldPosition, WorldPosition + Vector3.Down * groundCheckDistance )
 			.Radius( 8f )
 			.IgnoreGameObjectHierarchy( GameObject )
 			.Run()

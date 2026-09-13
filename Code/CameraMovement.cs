@@ -87,6 +87,22 @@ public sealed class CameraMovement : Component
 	private GameObject Orientation { get; set; }
 	private GameObject Head { get; set; }
 
+	/// <summary>
+	/// The camera that belongs to <paramref name="player"/>, for abilities to push FOV and tilt through.
+	/// Looks inside the player's own hierarchy first — with several players each carries a camera in
+	/// their prefab, and the first one in the scene could be somebody else's. Only if there's none there
+	/// does it take the scene's local camera, which is where a level's camera usually lives: on its own
+	/// object, where searching the player alone never found it and every FOV kick silently did nothing.
+	/// </summary>
+	public static CameraMovement Find( GameObject player )
+	{
+		if ( !player.IsValid() )
+			return null;
+
+		return player.Root.Components.Get<CameraMovement>( FindMode.EverythingInSelfAndDescendants )
+			?? player.Scene.GetAllComponents<CameraMovement>().FirstOrDefault( c => !c.IsProxy );
+	}
+
 	protected override void OnAwake()
 	{
 		Camera = Components.Get<CameraComponent>();

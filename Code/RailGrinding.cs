@@ -71,6 +71,7 @@ public sealed class RailGrinding : Component
 	private Rigidbody rb;
 	private RBPlayerMovement playerMovement;
 	private GrappleGun grapple;
+	private GrappleStrike strike;
 	private Sliding sliding;
 
 	private SoundHandle grindHandle;
@@ -81,12 +82,13 @@ public sealed class RailGrinding : Component
 		rb = GameObject.GetComponent<Rigidbody>();
 		playerMovement = GameObject.GetComponent<RBPlayerMovement>();
 		grapple = GameObject.GetComponent<GrappleGun>();
+		strike = GameObject.GetComponent<GrappleStrike>();
 		sliding = GameObject.GetComponent<Sliding>();
 	}
 
 	protected override void OnStart()
 	{
-		camMovement ??= GameObject.Root.Components.Get<CameraMovement>( FindMode.EverythingInSelfAndDescendants );
+		camMovement ??= CameraMovement.Find( GameObject );
 	}
 
 	protected override void OnUpdate()
@@ -131,6 +133,7 @@ public sealed class RailGrinding : Component
 
 		// Deliberate, velocity-owning systems take priority — don't fight them.
 		if ( grapple is not null && grapple.grappling ) return;
+		if ( strike is not null && strike.IsControllingPlayer ) return;
 		if ( sliding is not null && sliding.sliding ) return;
 
 		// A ground pound comes straight down with no horizontal speed/alignment, but should
@@ -213,8 +216,8 @@ public sealed class RailGrinding : Component
 
 	private void GrindTick()
 	{
-		// A grapple fired mid-grind takes over — yield velocity to it untouched.
-		if ( (grapple is not null && grapple.grappling) )
+		// A grapple / strike fired mid-grind takes over — yield velocity to it untouched.
+		if ( (grapple is not null && grapple.grappling) || (strike is not null && strike.IsControllingPlayer) )
 		{
 			Dismount( jump: false, launch: false );
 			return;

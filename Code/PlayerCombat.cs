@@ -13,6 +13,10 @@ public enum MeleeAttack
 /// they only differ by numbers, and "make the hook feel heavier" is a tuning job rather
 /// than a code one.
 ///
+/// When the hands have a clip for an attack, the windup belongs to the animation: the trace waits for
+/// the clip's hit event, so the damage lands on the frame the fist visibly connects. Attacks without a
+/// clip keep their windup timer.
+///
 /// Damage goes to a <see cref="Health"/> if the thing has one; knockback goes to a
 /// <see cref="Rigidbody"/> if the thing has one. Neither needs the other, so a physics
 /// crate flies without any health on it and a bolted-down dummy takes damage without moving.
@@ -28,11 +32,15 @@ public sealed class PlayerCombat : Component
 	[Property, Group( "References" ), Description( "Optional, found automatically. While something is in your hands, throwing it is the attack — swinging a fist through a barstool you're holding looks broken." )]
 	public PlayerGrab Grab { get; set; }
 
+	[Property, Group( "References" ), Description( "Optional, found automatically. The first-person hands. An attack they have a clip for lands on the frame its hit event plays; without hands, or without a clip, it lands on its windup timer." )]
+	public HandAnimationHelper Hands { get; set; }
+
 	[Property, Group( "Jab" ), Description( "Quick straight lead. Low commitment: you can throw three of these in the time one hook takes." )]
 	public float JabDamage { get; set; } = 8f;
 	[Property, Group( "Jab" )] public float JabRange { get; set; } = 70f;
 	[Property, Group( "Jab" )] public float JabRadius { get; set; } = 6f;
-	[Property, Group( "Jab" )] public float JabWindup { get; set; } = 0.05f;
+	[Property, Group( "Jab" ), Description( "When the jab lands if the hands have no jab clip. With one, it lands on the clip's hit event instead, and this is only where HitEventGrace starts counting from." )]
+	public float JabWindup { get; set; } = 0.05f;
 	[Property, Group( "Jab" )] public float JabRecovery { get; set; } = 0.15f;
 	[Property, Group( "Jab" )] public float JabKnockback { get; set; } = 90f;
 	[Property, Group( "Jab" )] public float JabLift { get; set; } = 0.05f;
@@ -78,6 +86,15 @@ public sealed class PlayerCombat : Component
 	[Property, Group( "Feel" ), Description( "A press this long before the current attack finishes still comes out, so mashing chains cleanly instead of eating inputs." )]
 	public float InputBufferTime { get; set; } = 0.15f;
 
+	[Property, Group( "Feel" ), Description( "How long past its windup an animated attack keeps waiting for the hit event before landing anyway. A safety net, not a timing — if its warning shows up, the event is missing, misnamed, or placed later than this." )]
+	public float HitEventGrace { get; set; } = 0.3f;
+
+	[Property, Group( "Feel" ), Description( "A hit with at least this much knockback launches what it hits as a weapon: whoever it crashes into takes damage and stagger, exactly as if you'd thrown it. The kick clears this easily, the hook only just does, the jab never will — so it's also the line a knockback drink pushes an attack over." )]
+	public float LaunchKnockback { get; set; } = 250f;
+
+	[Property, Group( "Feel" ), Description( "How long something you launch stays dangerous. Short on purpose: a man still sliding a second after a kick is a nudge, not a hit — and an enemy is disarmed anyway the moment he's back on his feet." )]
+	public float LaunchArmedTime { get; set; } = 1f;
+
 	[Property, Group( "References" ), Description( "Optional, found automatically. Without one, attacks are free and never tire you out." )]
 	public Stamina Stamina { get; set; }
 
@@ -99,10 +116,21 @@ public sealed class PlayerCombat : Component
 	public MeleeAttack CurrentAttack { get; private set; }
 
 	TimeSince timeSinceAttackStarted;
+	TimeSince timeSinceResolved;
 	bool resolved;
+
+	// whether this swing lands on the hands' hit event rather than its windup timer
+	bool waitsForHitFrame;
+
+	// set by the animation, which runs on the render tick, and spent on the next fixed tick where the
+	// rest of the attack lives — the same latch the attack buttons go through
+	bool hitFrameReached;
 
 	MeleeAttack? queued;
 	TimeSince timeSinceQueued;
+
+	// read only for ActionsBlocked: the run holds you through movement's freeze, and punching obeys it too
+	RBPlayerMovement movement;
 
 	protected override void OnStart()
 	{
@@ -110,15 +138,31 @@ public sealed class PlayerCombat : Component
 		// CameraLook that no longer exists, and a null Look doesn't fail loudly — it quietly
 		// falls back to swinging from the player's origin, which reads as a movement bug
 		// rather than a missing reference.
-		Look ??= Components.Get<CameraMovement>( FindMode.Enabled | FindMode.InSelf | FindMode.InDescendants );
+		Look ??= CameraMovement.Find( GameObject );
 		Grab ??= Components.Get<PlayerGrab>( FindMode.Enabled | FindMode.InSelf | FindMode.InDescendants );
 		Stamina ??= Components.Get<Stamina>( FindMode.Enabled | FindMode.InSelf | FindMode.InDescendants );
 		PlayerHealth ??= Components.Get<PlayerHealth>( FindMode.Enabled | FindMode.InSelf | FindMode.InDescendants );
+		Hands ??= Components.Get<HandAnimationHelper>( FindMode.Enabled | FindMode.InSelf | FindMode.InDescendants );
+		movement = Components.Get<RBPlayerMovement>( FindMode.Enabled | FindMode.InSelf | FindMode.InAncestors );
+
+		if ( Hands.IsValid() )
+			Hands.OnHitFrame += OnHandsHitFrame;
+	}
+
+	protected override void OnDestroy()
+	{
+		if ( Hands.IsValid() )
+			Hands.OnHitFrame -= OnHandsHitFrame;
 	}
 
 	protected override void OnUpdate()
 	{
 		if ( PlayerHealth.IsValid() && PlayerHealth.IsKnockedOut )
+			return;
+
+		// held by the run — the countdown, the bar, the end of the night. Movement and every ability
+		// already stop for this; without it you could still swing at thin air through the shop
+		if ( movement.IsValid() && movement.ActionsBlocked )
 			return;
 
 		if ( Grab.IsValid() && Grab.IsHolding )
@@ -140,14 +184,18 @@ public sealed class PlayerCombat : Component
 		{
 			var stats = StatsFor( CurrentAttack );
 
-			// the hit lands on one tick only, at the end of the windup
-			if ( !resolved && timeSinceAttackStarted >= stats.Windup )
+			// the hit lands on one tick only: the one after the hands say the fist connected, or the end
+			// of the windup for an attack with no clip to go by
+			if ( !resolved && ReadyToLand( stats ) )
 			{
 				Resolve( stats );
 				resolved = true;
+				timeSinceResolved = 0;
 			}
 
-			if ( timeSinceAttackStarted >= stats.Windup + stats.Recovery )
+			// counted from the hit rather than from the start, so a clip that connects later than the
+			// windup said doesn't quietly eat into the recovery
+			if ( resolved && timeSinceResolved >= stats.Recovery )
 				IsAttacking = false;
 		}
 
@@ -194,10 +242,47 @@ public sealed class PlayerCombat : Component
 		CurrentAttack = attack;
 		IsAttacking = true;
 		resolved = false;
+		hitFrameReached = false;
 		timeSinceAttackStarted = 0;
 
+		// the hands are only ever told to swing from here, after the punch is paid for — so a punch
+		// you're too winded to throw can't play its clip and fire a hit event with nothing behind it
+		waitsForHitFrame = Hands.IsValid() && Hands.TryPlay( attack );
+
 		if ( LogAttacks )
-			Log.Info( $"[Combat] {StatsFor( attack ).Name} thrown" );
+		{
+			string timing = waitsForHitFrame ? "waiting on its hit frame" : "on its windup timer";
+			Log.Info( $"[Combat] {StatsFor( attack ).Name} thrown, {timing}" );
+		}
+	}
+
+	/// <summary>
+	/// Whether the swing connects this tick. An animated attack waits for its clip's hit event, so the
+	/// damage lands on the frame the fist visibly arrives; anything without a clip keeps its timer.
+	/// </summary>
+	bool ReadyToLand( AttackStats stats )
+	{
+		if ( !waitsForHitFrame )
+			return timeSinceAttackStarted >= stats.Windup;
+
+		if ( hitFrameReached )
+			return true;
+
+		if ( timeSinceAttackStarted < stats.Windup + HitEventGrace )
+			return false;
+
+		// landed late rather than lost: a punch that silently never connects reads as the enemy being
+		// broken, where this one says exactly what to go and fix
+		Log.Warning( $"[Combat] {stats.Name} never got a '{Hands.HitEvent}' event from the hands — landed on the timer instead. Check the Type Name on the clip's generic event, and that the graph actually plays the clip." );
+		return true;
+	}
+
+	void OnHandsHitFrame()
+	{
+		// only counts for a swing still waiting on one. Anything else — a clip playing on after its hit
+		// already landed on the timer, say — is the animation's business, not a second punch
+		if ( IsAttacking && waitsForHitFrame && !resolved )
+			hitFrameReached = true;
 	}
 
 	void Resolve( AttackStats stats )
@@ -234,6 +319,11 @@ public sealed class PlayerCombat : Component
 
 		if ( body.IsValid() )
 		{
+			// armed before it's launched, the same as a throw, so a man kicked point-blank into the one
+			// standing behind him still counts as a hit
+			if ( stats.Knockback >= LaunchKnockback )
+				body.GameObject.Components.GetOrCreate<ThrownObject>().Arm( GameObject, LaunchArmedTime );
+
 			float mass = ScaleKnockbackWithMass ? ( body.PhysicsBody?.Mass ?? 1f ) : 1f;
 			impulse = stats.Knockback * mass;
 
@@ -246,7 +336,7 @@ public sealed class PlayerCombat : Component
 
 		// stagger before damage, so a blow that both staggers and kills still reports the stagger
 		stagger?.Add( stats.Stagger, GameObject );
-		health?.TakeDamage( stats.Damage, GameObject, trace.HitPosition );
+		health?.TakeDamage( stats.Damage, GameObject, trace.HitPosition, direction );
 
 		if ( LogAttacks )
 		{

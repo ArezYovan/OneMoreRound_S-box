@@ -93,7 +93,7 @@ public sealed class PlayerGrab : Component
 		// Resolved rather than trusted to the editor reference: this used to point at a
 		// CameraLook that no longer exists, and an unset Look fails silently by grabbing from
 		// the player's origin.
-		Look ??= Components.Get<CameraMovement>( FindMode.Enabled | FindMode.InSelf | FindMode.InDescendants );
+		Look ??= CameraMovement.Find( GameObject );
 		Movement ??= Components.Get<RBPlayerMovement>( FindMode.Enabled | FindMode.InSelf | FindMode.InAncestors );
 		PlayerHealth ??= Components.Get<PlayerHealth>( FindMode.Enabled | FindMode.InSelf | FindMode.InDescendants );
 	}
@@ -101,6 +101,11 @@ public sealed class PlayerGrab : Component
 	protected override void OnUpdate()
 	{
 		if ( PlayerHealth.IsValid() && PlayerHealth.IsKnockedOut )
+			return;
+
+		// held by the run (the countdown, the bar, the end of the night) — the same gate movement and
+		// punching obey
+		if ( Movement.IsValid() && Movement.ActionsBlocked )
 			return;
 
 		// latched on the render tick — a tap between two fixed updates would otherwise vanish

@@ -107,7 +107,11 @@ public sealed class GrappleGun : Component
 		// LineRenderer arrives disabled and a default Get() would return null, leaving this
 		// player's rope permanently invisible here.
 		Rope = Components.Get<LineRenderer>( FindMode.EverythingInSelf );
-		cameraMovement ??= GameObject.Root.Components.Get<CameraMovement>( FindMode.EverythingInSelfAndDescendants );
+	}
+
+	protected override void OnStart()
+	{
+		cameraMovement ??= CameraMovement.Find( GameObject );
 	}
 
 	protected override void OnUpdate()
@@ -141,7 +145,7 @@ public sealed class GrappleGun : Component
 
 		// Re-requested per frame; eases back to base FOV on its own when we stop.
 		if ( grappling && rb.Velocity.Length > 500f)
-			cameraMovement.RequestFov( GrappleFov );
+			cameraMovement?.RequestFov( GrappleFov );
 
 		// Reel whir loops only while actively reeling (attached + holding Jump). Managed
 		// here in OnUpdate so it always stops when the grapple ends, for any reason.

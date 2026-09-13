@@ -63,12 +63,14 @@ public sealed class Sliding : Component
 		rb = GameObject.GetComponent<Rigidbody>();
 		orientation = playerMovement.Orientation;
 		Head = playerMovement.Head;
-		// Find the camera within THIS player's own prefab, not scene-wide — with several
-		// players each has their own camera and FirstOrDefault would grab the wrong one.
-		camMovement ??= GameObject.Root.Components.Get<CameraMovement>( FindMode.EverythingInSelfAndDescendants );
 
 		startZScale = PlayerObj.LocalScale.z;
 		slideZScale = PlayerObj.LocalScale.z / 2f;
+	}
+
+	protected override void OnStart()
+	{
+		camMovement ??= CameraMovement.Find( GameObject );
 	}
 
 	protected override void OnUpdate()

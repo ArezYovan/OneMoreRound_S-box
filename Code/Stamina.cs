@@ -79,6 +79,16 @@ public sealed class Stamina : Component
 	/// </summary>
 	public bool TryConsume( float amount = 1f ) => TrySpend( amount );
 
+	/// <summary>
+	/// Straight back to full and out of any lockout. The run calls this at the start of every round —
+	/// wind doesn't carry between fights any more than health does.
+	/// </summary>
+	public void Refill()
+	{
+		Current = MaxStamina;
+		IsExhausted = false;
+	}
+
 	protected override void OnUpdate()
 	{
 		if ( Current < MaxStamina && timeSinceSpend > RegenDelay )

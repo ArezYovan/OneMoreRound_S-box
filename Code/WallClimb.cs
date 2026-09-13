@@ -66,7 +66,11 @@ public sealed class WallClimb : Component
 		rb = GameObject.GetComponent<Rigidbody>();
 		playerMovement = GameObject.GetComponent<RBPlayerMovement>();
 		orientation = playerMovement.Orientation;
-		camMovement ??= GameObject.Root.Components.Get<CameraMovement>( FindMode.EverythingInSelfAndDescendants );
+	}
+
+	protected override void OnStart()
+	{
+		camMovement ??= CameraMovement.Find( GameObject );
 	}
 
 	protected override void OnUpdate()

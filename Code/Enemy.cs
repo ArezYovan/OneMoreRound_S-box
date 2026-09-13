@@ -23,6 +23,10 @@ public enum EnemyState
 /// point of this game, and a controller would have to reimplement being shoved around; a
 /// rigidbody just gets shoved. It also means PlayerCombat's existing impulse works on these
 /// with no special case.
+///
+/// Built for a crowd. Only a few men swing at once — the director hands out the turns — and
+/// everyone else holds a spot of his own somewhere in a wide band around you, stalking rather
+/// than sprinting. That's what keeps twenty of them a fight instead of a pile.
 /// </summary>
 public sealed class Enemy : Component
 {
@@ -44,27 +48,33 @@ public sealed class Enemy : Component
 	[Property, Group( "References" ), Description( "Optional, found automatically. The upright collision hull, switched off when the ragdoll takes over." )]
 	public Collider Hull { get; set; }
 
-	[Property, Group( "Movement" )] public float MoveSpeed { get; set; } = 210f;
-	[Property, Group( "Movement" )] public float Acceleration { get; set; } = 11f;
-	[Property, Group( "Movement" )] public float TurnSpeed { get; set; } = 8f;
+	[Property, Group( "Movement" )] public float MoveSpeed { get; set; } = 450f;
+	[Property, Group( "Movement" )] public float Acceleration { get; set; } = 18f;
+	[Property, Group( "Movement" )] public float TurnSpeed { get; set; } = 12f;
 
 	[Property, Group( "Movement" ), Description( "How close it gets before it plants its feet and swings." )]
-	public float StopDistance { get; set; } = 60f;
+	public float StopDistance { get; set; } = 80f;
 
-	[Property, Group( "Crowd" ), Description( "Radius of the ring they wait on. Wide enough to see the whole crowd at once in first person, tight enough to feel surrounded." )]
-	public float CircleDistance { get; set; } = 120f;
+	[Property, Group( "Crowd" ), Description( "Nearest a waiting man stands to you. Everyone not taking a swing holds a spot somewhere between this and BandMax, each at his own distance — spread through depth rather than all trying to stand on one circle, which is what used to pile them into a blob." )]
+	public float BandMin { get; set; } = 220f;
 
-	[Property, Group( "Crowd" ), Description( "Close enough to their slot to stop shuffling. At zero they twitch on the spot forever, chasing a point they can never stand exactly on." )]
-	public float SlotArriveDistance { get; set; } = 22f;
+	[Property, Group( "Crowd" ), Description( "Farthest a waiting man stands, and the range he'll accept a turn to attack from. Keep it within what he can cover before EngageTimeout runs out." )]
+	public float BandMax { get; set; } = 500f;
 
-	[Property, Group( "Crowd" ), Description( "How far outside the ring they will still ask for a turn to attack." )]
-	public float EngageSlack { get; set; } = 45f;
+	[Property, Group( "Crowd" ), Description( "Waiting men move at this fraction of MoveSpeed. They stalk rather than sprint, so when you dash off the whole room doesn't follow you in a line — and whoever is already close gets the next swing." )]
+	public float StalkSpeedScale { get; set; } = 0.5f;
+
+	[Property, Group( "Crowd" ), Description( "Past BandMax times this, a waiting man stops stalking and runs to catch up. Without it, anyone you dashed away from would take an age to find the fight again." )]
+	public float CatchUpFactor { get; set; } = 1.3f;
+
+	[Property, Group( "Crowd" ), Description( "Close enough to his spot to stop shuffling. Generous on purpose: the spots are far out and move with you, so a tight tolerance has the whole crowd twitching on the spot." )]
+	public float SpotTolerance { get; set; } = 60f;
 
 	[Property, Group( "Crowd" ), Description( "Give the turn back if they cannot reach him in this long — otherwise one man stuck behind a table holds a turn nobody else can use." )]
 	public float EngageTimeout { get; set; } = 3f;
 
-	[Property, Group( "Crowd" ), Description( "How close another patron gets before they start elbowing apart." )]
-	public float SeparationRadius { get; set; } = 50f;
+	[Property, Group( "Crowd" ), Description( "Elbow room kept between shoulders. Measured from the edge of each body rather than its middle, so it keeps working whatever the model is scaled to — measured from the middle, it used to be smaller than a man and never fired until they were standing in each other." )]
+	public float ShoulderGap { get; set; } = 40f;
 
 	[Property, Group( "Crowd" ), Description( "How hard they push off each other. This is what stops the crowd collapsing into one grinding pile." )]
 	public float SeparationStrength { get; set; } = 0.9f;
@@ -73,8 +83,8 @@ public sealed class Enemy : Component
 	public float Variance { get; set; } = 0.18f;
 
 	[Property, Group( "Attack" )] public float AttackDamage { get; set; } = 14f;
-	[Property, Group( "Attack" )] public float AttackRange { get; set; } = 75f;
-	[Property, Group( "Attack" )] public float AttackRadius { get; set; } = 14f;
+	[Property, Group( "Attack" )] public float AttackRange { get; set; } = 100f;
+	[Property, Group( "Attack" )] public float AttackRadius { get; set; } = 18f;
 
 	[Property, Group( "Attack" ), Description( "How far up the swing comes from. Roughly chest height on a citizen." )]
 	public float AttackHeight { get; set; } = 50f;
@@ -89,23 +99,42 @@ public sealed class Enemy : Component
 	[Property, Group( "Attack" )] public float Knockback { get; set; } = 260f;
 	[Property, Group( "Attack" )] public float AttackLift { get; set; } = 0.1f;
 
-	[Property, Group( "Reactions" ), Description( "How long the AI stops steering after being hit. Without this the chase velocity overwrites the knockback on the very next tick and punches feel like they do nothing — this is what lets a hit actually move them." )]
+	[Property, Group( "Reactions" ), Description( "Least time the AI stops steering after being hit. Without this the chase velocity overwrites the knockback on the very next tick and punches feel like they do nothing — this is what lets a hit actually move them." )]
 	public float StunTime { get; set; } = 0.35f;
+
+	[Property, Group( "Reactions" ), Description( "Past StunTime, stay hands-off until he has slowed below this. A kick launches a man across the room, and handing control back mid-flight would have him brake to a stop in the air." )]
+	public float StunRecoverSpeed { get; set; } = 200f;
+
+	[Property, Group( "Reactions" ), Description( "Longest a hit keeps him hands-off however fast he's still sliding, so nobody gets stuck stunned on a slope." )]
+	public float MaxStunTime { get; set; } = 1.5f;
 
 	[Property, Group( "Reactions" )] public bool RagdollOnDeath { get; set; } = true;
 
 	[Property, Group( "Debug" )] public bool LogState { get; set; } = true;
 
+	[Property, Group( "Debug" ), Description( "Practice dummy. He stays where he is, never turns and never swings, but everything done TO him still plays out as in a fight: knockback, the flinch, stagger, being grabbed, dying. Can be flipped mid-play." )]
+	public bool ForceIdle { get; set; }
+
 	[Property] public EnemyState State { get; private set; } = EnemyState.Idle;
 
-	/// <summary>Upright and still in the fight, so worth a place in the ring.</summary>
+	/// <summary>Upright and still in the fight, so worth a place in the crowd.</summary>
 	public bool WantsSlot => State != EnemyState.Dead && State != EnemyState.Staggered;
+
+	/// <summary>Waiting, off cooldown, inside the band and not a practice dummy — someone the director may hand the next swing to.</summary>
+	public bool WantsTurn => !ForceIdle && State == EnemyState.Circling && timeSinceAttack > AttackCooldown && DistanceToTarget <= BandMax;
+
+	/// <summary>Flat distance to whoever he's after. Infinite with nobody to chase.</summary>
+	public float DistanceToTarget => Target.IsValid() ? ( Target.WorldPosition - WorldPosition ).WithZ( 0 ).Length : float.MaxValue;
+
+	/// <summary>Half the width of his hull in world units — what everyone else's ShoulderGap is measured out from.</summary>
+	public float BodyRadius { get; private set; }
 
 	TimeSince timeInState;
 	TimeSince timeSinceAttack;
 	EnemyDirector director;
 	float speedScale = 1f;
 	float windupScale = 1f;
+	float bandDistance;
 	Vector3? pendingLaunch;
 	ModelPhysics ragdoll;
 
@@ -115,6 +144,8 @@ public sealed class Enemy : Component
 		Animator ??= Components.Get<CitizenAnimationHelper>( FindMode.Enabled | FindMode.InSelf | FindMode.InDescendants );
 		Hull ??= Components.Get<Collider>( FindMode.EnabledInSelf );
 		Stagger ??= Components.Get<Stagger>( FindMode.EnabledInSelf );
+
+		BodyRadius = MeasureBodyRadius();
 
 		director = Scene.GetSystem<EnemyDirector>();
 		director.Register( this );
@@ -180,6 +211,19 @@ public sealed class Enemy : Component
 			return;
 		}
 
+		// the dummy only gives up his own moves. Stunned and Staggered fall through untouched, so a hit
+		// still sends him flying and he only plants his feet again once it's done with him
+		if ( ForceIdle && State is EnemyState.Circling or EnemyState.Engaging or EnemyState.Windup or EnemyState.Recover )
+		{
+			// dropping back to Circling hands back any attack turn he was holding
+			Enter( EnemyState.Circling );
+			Brake();
+
+			Body.AngularVelocity = Vector3.Zero;
+			UpdateAnimation();
+			return;
+		}
+
 		if ( !Target.IsValid() )
 		{
 			Brake();
@@ -192,32 +236,41 @@ public sealed class Enemy : Component
 
 		switch ( State )
 		{
-			// no steering at all here: the hit's impulse is in the rigidbody, and the only way it
-			// reads on screen is if we keep our hands off the velocity long enough for it to travel
+			// no steering at all here: the hit's impulse is in the rigidbody, and the only way it reads on
+			// screen is if we keep our hands off the velocity long enough for it to travel — which for a
+			// kick means until he's actually stopped flying, not just for a fixed beat
 			case EnemyState.Stunned:
-				if ( timeInState > StunTime )
+			{
+				bool settled = Body.Velocity.WithZ( 0 ).Length <= StunRecoverSpeed;
+
+				if ( timeInState > StunTime && ( settled || timeInState > MaxStunTime ) )
 					Enter( EnemyState.Circling );
 				break;
+			}
 
 			// hands off entirely: they're being carried, thrown, or lying there, and every one of
 			// those is somebody else's physics to own. Stagger decides when this ends, not us
 			case EnemyState.Staggered:
 				break;
 
-			// waiting his turn on his own piece of the ring, instead of piling onto the same spot as
-			// everyone else and shoving for it
+			// holding his own spot in the band until the director hands him a turn. He stalks while he's
+			// in the band and only runs when you've left him well behind
 			case EnemyState.Circling:
+			{
 				FaceTarget( toTarget );
-				MoveTowards( director.GetSlotPosition( this, Target.WorldPosition, CircleDistance ), SlotArriveDistance );
 
-				if ( distance <= CircleDistance + EngageSlack && timeSinceAttack > AttackCooldown && director.RequestAttack( this ) )
+				float pace = distance > BandMax * CatchUpFactor ? 1f : StalkSpeedScale;
+				MoveTowards( director.GetSlotPosition( this, Target.WorldPosition, bandDistance ), SpotTolerance, pace );
+
+				if ( WantsTurn && director.RequestAttack( this ) )
 					Enter( EnemyState.Engaging );
 				break;
+			}
 
 			// he has a turn: close the distance and commit to it
 			case EnemyState.Engaging:
 				FaceTarget( toTarget );
-				MoveTowards( Target.WorldPosition, StopDistance * 0.9f );
+				MoveTowards( Target.WorldPosition, StopDistance * 0.9f, 1f );
 
 				if ( distance <= StopDistance )
 					BeginSwing();
@@ -260,6 +313,21 @@ public sealed class Enemy : Component
 		if ( !keepsTurn )
 			director?.ReleaseAttack( this );
 
+		// back on his feet and steering himself, so whatever launched or threw him is over. Left armed,
+		// a man kicked a moment ago would hit the next friend he simply walked into
+		if ( state is EnemyState.Circling or EnemyState.Engaging )
+		{
+			var thrown = Components.Get<ThrownObject>();
+
+			if ( thrown.IsValid() )
+				thrown.Disarm();
+		}
+
+		// a fresh distance every time he goes back to waiting, so the crowd keeps shifting through depth
+		// instead of settling into one shape for the whole fight
+		if ( state == EnemyState.Circling )
+			bandDistance = RollBandDistance();
+
 		State = state;
 		timeInState = 0;
 
@@ -267,13 +335,13 @@ public sealed class Enemy : Component
 			Log.Info( $"[Enemy] {GameObject.Name} → {state}" );
 	}
 
-	void MoveTowards( Vector3 destination, float arriveDistance )
+	void MoveTowards( Vector3 destination, float arriveDistance, float pace )
 	{
 		var to = ( destination - WorldPosition ).WithZ( 0 );
 
 		// stop short rather than shouldering into things — walking into the player and pushing him
 		// around the room reads as a bug, not as pressure
-		var wish = to.Length > arriveDistance ? to.Normal * MoveSpeed * speedScale : Vector3.Zero;
+		var wish = to.Length > arriveDistance ? to.Normal * MoveSpeed * speedScale * pace : Vector3.Zero;
 
 		wish += Separation() * MoveSpeed * SeparationStrength;
 
@@ -285,9 +353,9 @@ public sealed class Enemy : Component
 	}
 
 	/// <summary>
-	/// Elbow room. The ring spreads them out in principle, but two men heading for neighbouring
-	/// slots still grind against each other on the way — this is what keeps the crowd from
-	/// collapsing back into one shoving pile.
+	/// Elbow room. The band spreads them out in principle, but men heading for neighbouring spots
+	/// still grind against each other on the way — this is what keeps the crowd from collapsing back
+	/// into one shoving pile.
 	/// </summary>
 	Vector3 Separation()
 	{
@@ -301,16 +369,44 @@ public sealed class Enemy : Component
 			if ( other == this || !other.IsValid() || !other.WantsSlot )
 				continue;
 
+			// both bodies plus the gap between them, so it starts pushing before shoulders touch
+			float reach = BodyRadius + other.BodyRadius + ShoulderGap;
+
 			var away = ( WorldPosition - other.WorldPosition ).WithZ( 0 );
 			float distance = away.Length;
 
-			if ( distance >= SeparationRadius || distance <= 0.01f )
+			if ( distance >= reach || distance <= 0.01f )
 				continue;
 
-			push += away.Normal * ( 1f - distance / SeparationRadius );
+			push += away.Normal * ( 1f - distance / reach );
 		}
 
 		return push;
+	}
+
+	float RollBandDistance()
+	{
+		float near = MathF.Min( BandMin, BandMax );
+		float far = MathF.Max( BandMin, BandMax );
+
+		return Game.Random.Float( near, far );
+	}
+
+	/// <summary>
+	/// Half the widest side of the hull in world units, read off the collider itself so the crowd's
+	/// spacing follows the model whatever it's scaled to. Falls back to a citizen's rough half-width.
+	/// </summary>
+	float MeasureBodyRadius()
+	{
+		float scale = Hull.IsValid() ? Hull.GameObject.WorldScale.x : GameObject.WorldScale.x;
+
+		return Hull switch
+		{
+			BoxCollider box => MathF.Max( box.Scale.x, box.Scale.y ) * 0.5f * scale,
+			CapsuleCollider capsule => capsule.Radius * scale,
+			SphereCollider sphere => sphere.Radius * scale,
+			_ => 24f * scale
+		};
 	}
 
 	void Brake()
@@ -370,7 +466,7 @@ public sealed class Enemy : Component
 		if ( body.IsValid() )
 			body.ApplyImpulseAt( trace.HitPosition, direction * Knockback * ( body.PhysicsBody?.Mass ?? 1f ) );
 
-		health?.TakeDamage( AttackDamage, GameObject, trace.HitPosition );
+		health?.TakeDamage( AttackDamage, GameObject, trace.HitPosition, direction );
 
 		if ( LogState )
 		{
@@ -407,9 +503,6 @@ public sealed class Enemy : Component
 
 		// interrupts a windup, so landing a punch first genuinely beats them to the swing
 		Enter( EnemyState.Stunned );
-
-		Renderer?.Set( "hit", true );
-		Renderer?.Set( "hit_strength", amount.Remap( 0f, 30f, 0.2f, 1f, true ) );
 	}
 
 	void OnDeath()

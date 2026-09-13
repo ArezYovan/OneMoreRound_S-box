@@ -1,0 +1,25 @@
+- Ground slam radius increased by 20%
+- Unlock grapple strike
+
+FOR JAB AND HOOK:
+- Jab AND hook damage increase by #%
+- Jab AND hook reach increase by #%
+
+FOR KICK:
+- Kick damage increase by #%
+- Kick knockback increase by #%
+
+THROWING:
+- Thrown object do #% more damage
+- Thrown objects bounce back to you if its hits an enemy
+
+ABILITIES:
+- Sliding will stun enemies hit by it
+- Ground slam will now stagger enemies
+- Ground slam radius increased by 20%
+- Ground slam deals #% more damage
+- Ground slam will now knock enemies back
+
+UNLOCKS:
+- Unlock grapple strike
+- 

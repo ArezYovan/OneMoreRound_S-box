@@ -59,6 +59,7 @@ public sealed class GroundPound : Component
 	private RBPlayerMovement playerMovement;
 	private Stamina stamina;
 	private GrappleGun grapple;
+	private GrappleStrike strike;
 	private Sliding slide;
 
 	// Horizontal velocity captured the instant the pound starts, so it can be handed into a
@@ -71,12 +72,13 @@ public sealed class GroundPound : Component
 		playerMovement = GameObject.GetComponent<RBPlayerMovement>();
 		stamina = GameObject.GetComponent<Stamina>();
 		grapple = GameObject.GetComponent<GrappleGun>();
+		strike = GameObject.GetComponent<GrappleStrike>();
 		slide = GameObject.GetComponent<Sliding>();
 	}
 
 	protected override void OnStart()
 	{
-		cameraMovement ??= GameObject.Root.Components.Get<CameraMovement>( FindMode.EverythingInSelfAndDescendants );
+		cameraMovement ??= CameraMovement.Find( GameObject );
 	}
 
 	protected override void OnUpdate()
@@ -134,8 +136,8 @@ public sealed class GroundPound : Component
 
 	private void PoundTick()
 	{
-		// A grapple fired mid-pound takes over — yield velocity to it untouched.
-		if ( (grapple is not null && grapple.grappling) )
+		// A grapple / strike fired mid-pound takes over — yield velocity to it untouched.
+		if ( (grapple is not null && grapple.grappling) || (strike is not null && strike.IsControllingPlayer) )
 		{
 			pounding = false;
 			return;
