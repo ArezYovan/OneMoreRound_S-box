@@ -1,0 +1,32 @@
+{
+  "Name": "Screwdriver",
+  "Flavour": "Vodka and orange",
+  "Upsides": [
+    "+25 max stamina",
+    "Stamina comes back 20% faster"
+  ],
+  "Downsides": [],
+  "Effects": [
+    {
+      "Stat": "MaxStamina",
+      "Percent": 0,
+      "Flat": 25
+    },
+    {
+      "Stat": "StaminaRegen",
+      "Percent": 20,
+      "Flat": 0
+    }
+  ],
+  "Rarity": "Purple",
+  "Weight": 1,
+  "OnePerNight": false,
+  "Price": 30,
+  "Tint": "1,1,1,1",
+  "Model": {
+    "Id": "8e9a2cfc-00ec-4ebe-b272-7f5ac8bed9a0",
+    "Path": "models/bottle_models/glass_cup/glass_yellow.vmdl"
+  },
+  "__references": [],
+  "__version": 0
+}

@@ -4,27 +4,64 @@
 @using Sandbox.UI
 @inherits PanelComponent
 
+@*
+	The night, in the corners of the screen.
+
+	There is no tab to track any more, so the round number IS the score and it gets the middle of the top.
+	Money moves out to the top right and only shows up at the bar, because between rounds is the only time
+	it means anything — during a fight it's a number you can't spend.
+
+	The question itself lives in RoundQuestionHud, not here: it wants the cursor and its own buttons, and
+	it is the one screen in the game the player actually has to answer.
+*@
+
 <root>
 	@if ( Run.IsValid() )
 	{
-		<div class="run">
-			<div class="run-bar">
-				<label class="cell">@RoundText</label>
-				<label class="cell @(Run.IsCovered ? "covered" : "")">@MoneyText</label>
+		@if ( !Run.AtTheBar && !Blackout )
+		{
+			<div class="run">
+				<label class="round">@RoundText</label>
 				@if ( Run.Phase == RunPhase.Fighting )
 				{
-					<label class="cell dim">@FightText</label>
+					<div class="fight">
+						<label>@LeftText</label>
+						<label class="sep">|</label>
+						<label>@ClockText</label>
+					</div>
 				}
 			</div>
-		</div>
+		}
+
+		@* a ShopBoard in the bar shows the money itself *@
+		@if ( Run.AtTheBar && !Scene.GetAllComponents<ShopBoard>().Any() )
+		{
+			<div class="purse">
+				<label class="money">@MoneyText</label>
+			</div>
+		}
+
+		@* straight to black the frame you go down — no fade, the lights just go out *@
+		@if ( Blackout )
+		{
+			<div class="blackout"></div>
+		}
 
 		@if ( BannerTitle is not null )
 		{
-			<div class="banner">
+			<div class="banner" style="@BannerStyle">
 				<label class="title @TitleClass">@BannerTitle</label>
 				@if ( BannerDetail is not null )
 				{
 					<label class="detail">@BannerDetail</label>
+				}
+
+				@if ( Run.Phase == RunPhase.Over )
+				{
+					<div class="menu" style="opacity: @MenuOpacity.ToString( "0.##", System.Globalization.CultureInfo.InvariantCulture );">
+						<button class="button" onclick=@( () => Press( Run.Restart ) )>RESTART</button>
+						<button class="button quiet" onclick=@( () => Press( Run.QuitToMenu ) )>QUIT TO MENU</button>
+					</div>
 				}
 			</div>
 		}
@@ -38,39 +75,57 @@
 		left: 0px;
 		width: 100%;
 		height: 100%;
-		font-family: Consolas, monospace;
+		font-family: VCR OSD Mono;
 		color: white;
 		pointer-events: none;
 	}
 
+	/* no box behind it — a shadow keeps the text readable over a bright bar instead */
 	.run {
 		position: absolute;
-		top: 24px;
+		top: 18px;
 		left: 0px;
 		width: 100%;
-		flex-direction: row;
-		justify-content: center;
+		flex-direction: column;
+		align-items: center;
 	}
 
-	.run-bar {
+	.round {
+		font-size: 44px;
+		font-weight: bold;
+		letter-spacing: 4px;
+		color: rgba(255, 236, 200, 1);
+		text-shadow: 0px 2px 8px rgba(0, 0, 0, 0.9);
+	}
+
+	.fight {
 		flex-direction: row;
 		align-items: center;
-		background-color: rgba(0, 0, 0, 0.55);
-		padding: 8px 6px;
-		border-radius: 4px;
-		font-size: 18px;
+		margin-top: 2px;
+		font-size: 20px;
+		letter-spacing: 2px;
+		color: rgba(255, 255, 255, 0.85);
+		text-shadow: 0px 2px 6px rgba(0, 0, 0, 0.9);
 	}
 
-	.cell {
-		margin: 0px 14px;
+	.sep {
+		margin: 0px 12px;
+		color: rgba(255, 255, 255, 0.4);
 	}
 
-	.dim {
-		color: rgba(255, 255, 255, 0.6);
+	.purse {
+		position: absolute;
+		top: 24px;
+		right: 32px;
+		flex-direction: column;
+		align-items: flex-end;
 	}
 
-	.covered {
-		color: #7fd17f;
+	.money {
+		font-size: 34px;
+		font-weight: bold;
+		color: rgba(255, 236, 200, 1);
+		text-shadow: 0px 2px 8px rgba(0, 0, 0, 0.9);
 	}
 
 	.banner {
@@ -96,6 +151,52 @@
 		color: #e0483c;
 	}
 
+	.blackout {
+		position: absolute;
+		top: 0px;
+		left: 0px;
+		width: 100%;
+		height: 100%;
+		background-color: black;
+	}
+
+	/* the HUD lets clicks fall through to the game; the end-of-night menu is the one part that has to catch them */
+	.menu {
+		flex-direction: column;
+		align-items: center;
+		margin-top: 40px;
+		pointer-events: all;
+	}
+
+	.button {
+		width: 320px;
+		height: 56px;
+		margin-bottom: 14px;
+		align-items: center;
+		justify-content: center;
+		font-size: 22px;
+		letter-spacing: 3px;
+		color: rgba(20, 16, 14, 1);
+		background-color: rgba(255, 236, 200, 1);
+		border-radius: 3px;
+		transition: all 0.1s ease-out;
+	}
+
+	.button:hover {
+		background-color: white;
+		transform: scale(1.03);
+	}
+
+	.button.quiet {
+		color: rgba(255, 255, 255, 0.6);
+		background-color: rgba(255, 255, 255, 0.08);
+	}
+
+	.button.quiet:hover {
+		color: white;
+		background-color: rgba(255, 255, 255, 0.16);
+	}
+
 	.detail {
 		font-size: 20px;
 		margin-top: 10px;
@@ -106,6 +207,24 @@
 </style>
 
 @code {
+	[Property, Group( "Sound" ), Description( "Played as the ROUND banner comes up before each wave." )]
+	public SoundEvent RoundStartSound { get; set; }
+
+	[Property, Group( "Sound" ), Description( "Played with the CLEARED banner and its payout." )]
+	public SoundEvent ClearedSound { get; set; }
+
+	[Property, Group( "Sound" ), Description( "Played when the night ends by walking out. Going down already has its ringing, on the RunManager." )]
+	public SoundEvent WalkedOutSound { get; set; }
+
+	[Property, Group( "Sound" ), Description( "Played when the pointer lands on RESTART or QUIT TO MENU." )]
+	public SoundEvent HoverSound { get; set; }
+
+	[Property, Group( "Sound" ), Description( "Played when RESTART or QUIT TO MENU is pressed. Quitting changes scene, which can cut it short." )]
+	public SoundEvent PressSound { get; set; }
+
+	readonly HoverSounds hoverSounds = new();
+	RunPhase lastPhase = RunPhase.Idle;
+
 	RunManager run;
 
 	// found lazily rather than wired up, so dropping this on the HUD object is the whole setup
@@ -114,42 +233,80 @@
 	int WaveSize => Run.Spawner.IsValid() ? Run.Spawner.WaveSizeFor( Run.Round ) : 0;
 	int Remaining => Run.Spawner.IsValid() ? Run.Spawner.Remaining : 0;
 
-	string RoundText => $"ROUND {Math.Max( 1, Run.Round )} / {Run.Rounds}";
-	string MoneyText => $"${Run.Money} / ${Run.Tab}";
-	string FightText => $"{Clock( Run.RoundTime )}  ·  {Remaining} left";
+	// no "of ten" any more — there is no last round to count towards
+	string RoundText => $"ROUND {Math.Max( 1, Run.Round )}";
+	string MoneyText => $"${Run.Money}";
+	string LeftText => $"{Remaining} LEFT";
+	string ClockText => Clock( Run.RoundTime );
 
 	string TitleClass => Run.Phase switch
 	{
-		RunPhase.Paid or RunPhase.Won => "good",
-		RunPhase.Down or RunPhase.Banned => "bad",
+		RunPhase.Paid => "good",
+		RunPhase.Down => "bad",
+		RunPhase.Over => Run.Survived ? "good" : "bad",
 		_ => ""
 	};
 
 	string BannerTitle => Run.Phase switch
 	{
-		RunPhase.Starting => Run.IsLastRound ? "LAST ROUND" : $"ROUND {Run.Round}",
+		RunPhase.Starting => $"ROUND {Run.Round}",
 		RunPhase.Paid => "CLEARED",
-		RunPhase.Down => "KNOCKED OUT",
-		RunPhase.Shop => "THE BAR",
-		RunPhase.Won => "TAB SETTLED",
-		RunPhase.Banned => "BANNED",
+		RunPhase.Over => Run.Survived ? $"ROUND {Run.Score}" : "KNOCKED OUT",
 		_ => null
 	};
 
 	string BannerDetail => Run.Phase switch
 	{
 		RunPhase.Starting => WaveSize > 0 ? $"{WaveSize} coming through the door" : null,
-		RunPhase.Paid => $"+${Run.LastPayout}    cleared in {Clock( Run.RoundTime )}",
-		RunPhase.Down => "this round pays nothing",
-		RunPhase.Shop => Run.IsCovered
-			? "SPACE  next round      E  settle up and walk out"
-			: $"SPACE  next round      ${Run.Short} short of the tab",
-		RunPhase.Won => $"${Run.Money - Run.Tab} in your pocket      SPACE  another night",
-		RunPhase.Banned => $"${Run.Money} of ${Run.Tab} at closing      SPACE  try again",
+		RunPhase.Paid => Run.RoundBounty > 0
+			? $"+${Run.LastPayout}  +${Run.RoundBounty} bounty    cleared in {Clock( Run.RoundTime )}"
+			: $"+${Run.LastPayout}    cleared in {Clock( Run.RoundTime )}",
+		RunPhase.Over => !Run.Survived ? "the night scores nothing"
+			: Run.NewBest ? "a new best - saved"
+			: $"you walked out while you were ahead  ·  best: {HighScore.Best}",
 		_ => null
 	};
 
+	bool Blackout => Run.Phase is RunPhase.Down or RunPhase.Over;
+
+	// the end-of-night screen fades up out of the black, counted on the wall clock — the scene is paused
+	float MenuOpacity => Run.Phase != RunPhase.Over ? 1f
+		: Run.MenuFadeTime <= 0f ? 1f
+		: ( Run.RealTimeInPhase / Run.MenuFadeTime ).Clamp( 0f, 1f );
+
+	string BannerStyle => Run.Phase == RunPhase.Over
+		? $"opacity: {MenuOpacity.ToString( "0.##", System.Globalization.CultureInfo.InvariantCulture )};"
+		: "";
+
 	static string Clock( float seconds ) => $"{(int)( seconds / 60f )}:{(int)( seconds % 60f ):00}";
+
+	protected override void OnUpdate()
+	{
+		if ( !Run.IsValid() )
+			return;
+
+		// each banner sounds once, the frame its phase begins
+		if ( Run.Phase != lastPhase )
+		{
+			lastPhase = Run.Phase;
+
+			UiSound.Play( Run.Phase switch
+			{
+				RunPhase.Starting => RoundStartSound,
+				RunPhase.Paid => ClearedSound,
+				RunPhase.Over when Run.Survived => WalkedOutSound,
+				_ => null
+			} );
+		}
+
+		hoverSounds.Update( Run.Phase == RunPhase.Over ? Panel : null, HoverSound, "button" );
+	}
+
+	void Press( Action action )
+	{
+		UiSound.Play( PressSound );
+		action();
+	}
 
 	protected override int BuildHash() => !Run.IsValid() ? 0 : System.HashCode.Combine(
 		Run.Phase,
@@ -158,5 +315,6 @@
 		(int)Run.RoundTime,
 		Remaining,
 		Run.LastPayout,
-		Run.IsCovered );
+		Run.Score,
+		System.HashCode.Combine( Run.Survived, (int)( MenuOpacity * 30f ) ) );
 }

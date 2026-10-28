@@ -1,0 +1,463 @@
+@using System
+@using System.Globalization
+@using System.Linq
+@using Sandbox
+@using Sandbox.UI
+@inherits PanelComponent
+
+<root>
+	@if ( Fade > 0.001f )
+	{
+		<div class="fade" style="opacity: @Num( Fade );"></div>
+	}
+
+	@if ( Asking )
+	{
+		<div class="ask">
+			<label class="question">One more round?</label>
+			<label class="stake">@StakeText</label>
+
+			<div class="answers">
+				<button class="answer yes" onclick=@Yes>YES</button>
+				<button class="answer no" onclick=@No>NO</button>
+			</div>
+			<label class="warn">@WarnText</label>
+		</div>
+	}
+
+	@if ( Open )
+	{
+		@if ( Card is not null && CardStyle.Length > 0 )
+		{
+			<div class="card @RarityClass @(Affordable ? "" : "poor")" style="@CardStyle">
+				<label class="rarity">@RarityText</label>
+				<label class="name">@Card.Name</label>
+
+				@if ( !string.IsNullOrWhiteSpace( Card.Flavour ) )
+				{
+					<label class="flavour">@Card.Flavour</label>
+				}
+
+				@foreach ( var line in Card.Upsides )
+				{
+					<label class="up">+ @line</label>
+				}
+
+				@foreach ( var line in Card.Downsides )
+				{
+					<label class="down">− @line</label>
+				}
+
+				<label class="price">@PriceText</label>
+			</div>
+		}
+
+		@* money, reroll and done live on a ShopBoard in the world when there is one; this is the fallback *@
+		@if ( !HasBoard )
+		{
+		<div class="bar">
+			<label class="money">@MoneyText</label>
+
+			<div class="buttons">
+				<button class="btn @(Shop.CanReroll ? "" : "off")" onclick=@Reroll>@RerollText</button>
+				<button class="btn go" onclick=@Done>NEXT ROUND</button>
+			</div>
+		</div>
+		}
+	}
+</root>
+
+<style>
+	ShopHud {
+		position: absolute;
+		top: 0px;
+		left: 0px;
+		width: 100%;
+		height: 100%;
+		font-family: VCR OSD Mono;
+		color: white;
+		pointer-events: none;
+	}
+
+	.fade {
+		position: absolute;
+		top: 0px;
+		left: 0px;
+		width: 100%;
+		height: 100%;
+		background-color: black;
+	}
+
+	.ask {
+		position: absolute;
+		top: 0px;
+		left: 0px;
+		width: 100%;
+		height: 100%;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.question {
+		font-size: 52px;
+		letter-spacing: 2px;
+		color: rgba(255, 236, 200, 1);
+		text-shadow: 0px 3px 10px rgba(0, 0, 0, 0.9);
+	}
+
+	.stake {
+		font-size: 18px;
+		color: rgba(255, 255, 255, 0.55);
+		margin-top: 10px;
+		margin-bottom: 26px;
+	}
+
+	.answers {
+		flex-direction: row;
+		align-items: center;
+
+		/* on the container as well as on each button, matching the reroll row below. The root panel turns
+		   pointer events off so clicks fall through to the bottles on the counter, and re-enabling them only
+		   on the leaf is one assumption about inheritance more than this needs to make */
+		pointer-events: all;
+	}
+
+	.answer {
+		width: 170px;
+		height: 56px;
+		margin: 0px 10px;
+		align-items: center;
+		justify-content: center;
+		font-size: 25px;
+		letter-spacing: 3px;
+		border-radius: 3px;
+		pointer-events: all;
+		transition: all 0.1s ease-out;
+	}
+
+	.answer.yes {
+		color: rgba(20, 16, 14, 1);
+		background-color: rgba(255, 236, 200, 1);
+	}
+
+	.answer.yes:hover {
+		background-color: white;
+		transform: scale(1.04);
+	}
+
+	.answer.no {
+		color: rgba(255, 255, 255, 0.75);
+		background-color: rgba(255, 255, 255, 0.12);
+	}
+
+	.answer.no:hover {
+		color: white;
+		background-color: rgba(255, 255, 255, 0.22);
+		transform: scale(1.04);
+	}
+
+	.warn {
+		font-size: 15px;
+		color: rgba(224, 72, 60, 0.9);
+		margin-top: 22px;
+	}
+
+	.waiting {
+		font-size: 22px;
+		color: rgba(255, 255, 255, 0.7);
+	}
+
+	.change {
+		margin-top: 18px;
+		padding: 8px 18px;
+		font-size: 14px;
+		color: rgba(255, 255, 255, 0.5);
+		background-color: rgba(255, 255, 255, 0.07);
+		border-radius: 3px;
+		pointer-events: all;
+	}
+
+	.change:hover {
+		color: white;
+		background-color: rgba(255, 255, 255, 0.15);
+	}
+
+	.card {
+		position: absolute;
+		width: 300px;
+		flex-direction: column;
+		background-color: rgba(0, 0, 0, 0.8);
+		border: 1px solid rgba(255, 255, 255, 0.25);
+		border-radius: 4px;
+		padding: 12px 14px;
+		font-size: 15px;
+	}
+
+	.card.poor {
+		border-color: rgba(224, 72, 60, 0.5);
+	}
+
+	/* the shelf it came off: the tag, the name and the frame all take its colour. After .poor on purpose — the
+	   rarity keeps the frame, and the red price is what says you can't afford it */
+	.rarity {
+		font-size: 12px;
+		letter-spacing: 3px;
+		margin-bottom: 2px;
+	}
+
+	.card.blue {
+		border: 2px solid rgba(90, 169, 255, 0.85);
+	}
+
+	.card.blue .rarity, .card.blue .name {
+		color: #5aa9ff;
+	}
+
+	.card.purple {
+		border: 2px solid rgba(181, 124, 255, 0.9);
+	}
+
+	.card.purple .rarity, .card.purple .name {
+		color: #b57cff;
+	}
+
+	.card.gold {
+		border: 2px solid rgba(242, 193, 78, 1);
+		background-color: rgba(28, 20, 4, 0.88);
+	}
+
+	.card.gold .rarity, .card.gold .name {
+		color: #f2c14e;
+	}
+
+	.name {
+		font-size: 20px;
+		font-weight: bold;
+		margin-bottom: 2px;
+	}
+
+	.flavour {
+		color: rgba(255, 255, 255, 0.5);
+		font-style: italic;
+		margin-bottom: 8px;
+	}
+
+	.up {
+		color: #7fd17f;
+		margin-top: 2px;
+	}
+
+	.down {
+		color: #e0483c;
+		margin-top: 2px;
+	}
+
+	.price {
+		margin-top: 10px;
+		padding-top: 8px;
+		border-top: 1px solid rgba(255, 255, 255, 0.15);
+		color: rgba(255, 255, 255, 0.85);
+	}
+
+	.card.poor .price {
+		color: #e0483c;
+	}
+
+	.bar {
+		position: absolute;
+		bottom: 40px;
+		left: 0px;
+		width: 100%;
+		flex-direction: column;
+		align-items: center;
+	}
+
+	.money {
+		font-size: 20px;
+		margin-bottom: 10px;
+		padding: 6px 14px;
+		background-color: rgba(0, 0, 0, 0.55);
+		border-radius: 4px;
+	}
+
+	.buttons {
+		flex-direction: row;
+		pointer-events: all;
+	}
+
+	.btn {
+		margin: 0px 6px;
+		padding: 10px 18px;
+		font-size: 16px;
+		background-color: rgba(0, 0, 0, 0.7);
+		border: 1px solid rgba(255, 255, 255, 0.3);
+		border-radius: 4px;
+		pointer-events: all;
+	}
+
+	.btn:hover {
+		background-color: rgba(255, 255, 255, 0.15);
+	}
+
+	.btn.go {
+		border-color: #7fd17f;
+		color: #7fd17f;
+	}
+
+	.btn.off {
+		color: rgba(255, 255, 255, 0.35);
+		border-color: rgba(255, 255, 255, 0.15);
+	}
+</style>
+
+@code {
+	[Property, Group( "Sound" ), Description( "Played when the pointer lands on a button. This screen only shows when there's no ShopBoard or RoundQuestion in the world." )]
+	public SoundEvent HoverSound { get; set; }
+
+	[Property, Group( "Sound" ), Description( "Played on YES — one more round." )]
+	public SoundEvent YesSound { get; set; }
+
+	[Property, Group( "Sound" ), Description( "Played on NO — walking out." )]
+	public SoundEvent NoSound { get; set; }
+
+	[Property, Group( "Sound" ), Description( "Played on NEXT ROUND. Re-roll's sounds are on the BarShop." )]
+	public SoundEvent DoneSound { get; set; }
+
+	readonly HoverSounds hoverSounds = new();
+
+	BarShop shop;
+
+	// found lazily rather than wired up, so dropping this on the HUD object is the whole setup
+	BarShop Shop => shop.IsValid() ? shop : ( shop = Scene.GetAllComponents<BarShop>().FirstOrDefault() );
+
+	RunManager Run => Shop.IsValid() ? Shop.Run : null;
+
+	/// <summary>
+	/// The counter — bottles, prices, reroll, the way out. Gated on the SHOP phase, not merely on the bar
+	/// being open: the bar is open through the question too, and a greyed-out reroll sitting there while you
+	/// are being asked whether to carry on was both ugly and a lie, since nothing on it did anything yet.
+	/// </summary>
+	bool Open => Shop.IsValid() && Shop.IsOpen && Run.IsValid() && Run.Phase == RunPhase.Shop;
+
+	/// <summary>The question, and nothing else on screen with it.</summary>
+	// only when nothing is asking it in the world — a RoundQuestion on the bar's back wall takes over from this
+	bool Asking => Run.IsValid() && Run.Phase == RunPhase.Deciding && !Scene.GetAllComponents<RoundQuestion>().Any();
+
+	float Fade => Shop.IsValid() ? Shop.Fade : 0f;
+
+	bool HasBoard => Scene.GetAllComponents<ShopBoard>().Any();
+
+	Drink Card => Open && Shop.Hovered.IsValid() ? Shop.Hovered.Drink : null;
+
+	// what the bottle costs you rather than what the asset says, so a haggling drink shows up on the card
+	int Price => Card is null ? 0 : Shop.IsValid() ? Shop.PriceOf( Card ) : Card.Price;
+
+	int Money => Run.IsValid() ? Run.Money : 0;
+
+	bool Affordable => Card is not null && Money >= Price;
+
+	string RarityClass => Card is null ? "" : Card.Rarity.ToString().ToLowerInvariant();
+
+	string RarityText => Card is null ? "" : Card.Rarity switch
+	{
+		DrinkRarity.Gold => "GOLD",
+		DrinkRarity.Purple => "PURPLE",
+		_ => "BLUE"
+	};
+
+	string PriceText
+	{
+		get
+		{
+			if ( Card is null )
+				return "";
+
+			if ( Affordable )
+				return $"${Price}    ·    click to drink";
+
+			return $"${Price}    ·    ${Price - Money} short";
+		}
+	}
+
+	string MoneyText => $"${Money}";
+
+	string RerollText => Shop.IsValid() ? $"NEW BOTTLES  ${Shop.RerollCost}" : "";
+
+	string StakeText => Run.IsValid() ? $"round {Run.Score} is yours if you walk out now" : "";
+
+	// spelled out rather than implied. The cost of a yes is every round you've already cleared, and a player
+	// who doesn't know that hasn't really made the choice
+	string WarnText => Run.IsValid() && Run.Score > 0
+		? $"go down in round {Run.Score + 1} and you score nothing at all"
+		: "";
+
+	/// <summary>
+	/// The card sits beside the bottle it describes, pinned to where that bottle is on screen. On the right half
+	/// it hangs to the left instead, so it never runs off the edge. Empty while there's nothing to show.
+	/// </summary>
+	string CardStyle
+	{
+		get
+		{
+			var camera = Scene.Camera;
+
+			if ( !Open || !Shop.Hovered.IsValid() || !camera.IsValid() )
+				return "";
+
+			var point = camera.PointToScreenNormal( Shop.Hovered.CardAnchor, out bool behind );
+
+			if ( behind )
+				return "";
+
+			bool left = point.x > 0.55f;
+			float x = point.x * 100f + ( left ? -2f : 2f );
+			float y = point.y * 100f - 4f;
+
+			// a decimal point, never a comma: a locale that writes 12,5 would turn the style into nonsense
+			string style = $"left: {Num( x )}%; top: {Num( y )}%;";
+
+			return left ? style + " margin-left: -300px;" : style;
+		}
+	}
+
+	void Yes()
+	{
+		UiSound.Play( YesSound );
+		Run?.Answer( RoundVote.Yes );
+	}
+
+	void No()
+	{
+		UiSound.Play( NoSound );
+		Run?.Answer( RoundVote.No );
+	}
+
+	void Reroll() => Shop?.Reroll();
+
+	void Done()
+	{
+		if ( !Run.IsValid() || Run.LeavingBar )
+			return;
+
+		UiSound.Play( DoneSound );
+		Run.SayReady();
+	}
+
+	protected override void OnUpdate()
+	{
+		hoverSounds.Update( Asking || Open ? Panel : null, HoverSound, "answer", "btn" );
+	}
+
+	static string Num( float value ) => value.ToString( "0.##", CultureInfo.InvariantCulture );
+
+	protected override int BuildHash() => System.HashCode.Combine(
+		Asking,
+		Open,
+		(int)( Fade * 100f ),
+		Card?.Name,
+		Affordable,
+		Money,
+		Shop.IsValid() && Shop.CanReroll,
+		Run.IsValid() ? Run.Score : 0 );
+}

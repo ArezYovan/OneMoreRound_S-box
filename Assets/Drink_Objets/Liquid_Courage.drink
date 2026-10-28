@@ -1,0 +1,33 @@
+{
+  "Name": "Liquid Courage",
+  "Flavour": "Tennessee whiskey",
+  "Upsides": [
+    "The lower your health, the harder you hit - up to +60% melee damage near death"
+  ],
+  "Downsides": [
+    "-20 max health"
+  ],
+  "Effects": [
+    {
+      "Stat": "LiquidCourage",
+      "Percent": 60,
+      "Flat": 0
+    },
+    {
+      "Stat": "MaxHealth",
+      "Percent": 0,
+      "Flat": -20
+    }
+  ],
+  "Rarity": "Gold",
+  "Weight": 1,
+  "OnePerNight": true,
+  "Price": 45,
+  "Tint": "1,1,1,1",
+  "Model": {
+    "Id": "3e338eed-ec05-4a96-963d-7cfc2c925e72",
+    "Path": "models/bottle_models/john_daniels_bottle.vmdl"
+  },
+  "__references": [],
+  "__version": 0
+}

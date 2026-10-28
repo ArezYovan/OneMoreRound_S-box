@@ -1,0 +1,20 @@
+{
+  "Name": "Empty_Glass",
+  "Flavour": "Unlucky",
+  "Upsides": [],
+  "Downsides": [
+    "Doesnt do anything :("
+  ],
+  "Effects": [],
+  "Price": 100,
+  "Tint": "1,1,1,1",
+  "Model": {
+    "Id": "6dee9452-293c-4357-99bd-6cb39d7691c1",
+    "Path": "models/bottle_models/omr_bottles.vmdl"
+  },
+  "__references": [],
+  "__version": 0,
+  "Rarity": "Blue",
+  "Weight": 0.25,
+  "OnePerNight": false
+}

@@ -1,0 +1,238 @@
+@using System
+@using System.Linq
+@using Sandbox
+@using Sandbox.UI
+@inherits PanelComponent
+
+@*
+	"One more round?" written on the back of the bar, in the world rather than on the screen. The question types
+	itself out a letter at a time, then YES and NO pop in under it. White text and nothing else — the answers
+	glow when the cursor is on them.
+
+	Goes on a GameObject with a WorldPanel. Clicking it needs a WorldInput on the camera.
+*@
+
+<root>
+	@if ( Asking || Exiting )
+	{
+		<div class="question">
+			<label class="typed">@Typed</label>
+			<label class="ghost">@Untyped</label>
+		</div>
+
+		<div class="answers @( AnswersShown ? "shown" : "" )">
+			<label class="answer" onclick=@Yes>yes</label>
+			<label class="answer" onclick=@No>no</label>
+		</div>
+	}
+</root>
+
+<style>
+	RoundQuestion {
+		width: 100%;
+		height: 100%;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		font-family: VCR OSD Mono;
+		color: white;
+	}
+
+	.question {
+		flex-direction: row;
+		font-size: 180px;
+	}
+
+	/* the rest of the line is there from the start, just not visible — so the typed part grows from the
+	   left instead of the whole line re-centring with every letter */
+	.ghost {
+		color: rgba(255, 255, 255, 0);
+	}
+
+	.answers {
+		flex-direction: row;
+		justify-content: space-around;
+		width: 100%;
+		margin-top: 40px;
+		opacity: 0;
+		transform: scale(0.6);
+		transition: all 0.25s ease-out;
+		pointer-events: none;
+	}
+
+	.answers.shown {
+		opacity: 1;
+		transform: scale(1);
+		pointer-events: all;
+	}
+
+	.answer {
+		font-size: 90px;
+		padding: 10px 40px;
+		cursor: pointer;
+		transition: text-shadow 0.15s ease-out;
+	}
+
+	.answer:hover {
+		text-shadow: 0px 0px 30px rgba(255, 255, 255, 1);
+	}
+</style>
+
+@code {
+	[Property, Description( "The line that gets typed out." )]
+	public string Question { get; set; } = "One more round?";
+
+	[Property, Description( "Seconds before the first letter, so the bar has faded in before the typing starts." )]
+	public float StartDelay { get; set; } = 0.6f;
+
+	[Property, Description( "Seconds per letter." )]
+	public float LetterTime { get; set; } = 0.07f;
+
+	[Property, Description( "Pause after the last letter before yes and no pop in." )]
+	public float AnswerDelay { get; set; } = 0.3f;
+
+	[Property, Group( "Put Away" ), Description( "How far it drops once answered, in world units, before it's gone." )]
+	public float DropDistance { get; set; } = 80f;
+
+	[Property, Group( "Put Away" ), Description( "How far it bobs up first, in world units — the little lift before it drops." )]
+	public float RiseHeight { get; set; } = 8f;
+
+	[Property, Group( "Put Away" ), Description( "Seconds from the answer to gone, rise and drop together." )]
+	public float PutAwayTime { get; set; } = 0.6f;
+
+	[Property, Group( "Put Away" ), Description( "Share of Put Away Time spent rising, before the drop." )]
+	public float RiseShare { get; set; } = 0.25f;
+
+	[Property, Group( "Sound" ), Description( "Played for each letter as the question types itself out. Keep it short and quiet — it plays a dozen times in a row." )]
+	public SoundEvent LetterSound { get; set; }
+
+	[Property, Group( "Sound" ), Description( "Played when YES and NO pop in under the question." )]
+	public SoundEvent AnswersShownSound { get; set; }
+
+	[Property, Group( "Sound" ), Description( "Played when the pointer lands on YES or NO." )]
+	public SoundEvent HoverSound { get; set; }
+
+	[Property, Group( "Sound" ), Description( "Played on YES — one more round." )]
+	public SoundEvent YesSound { get; set; }
+
+	[Property, Group( "Sound" ), Description( "Played on NO — walking out." )]
+	public SoundEvent NoSound { get; set; }
+
+	RunManager run;
+	RunManager Run => run.IsValid() ? run : ( run = Scene.GetAllComponents<RunManager>().FirstOrDefault() );
+
+	readonly HoverSounds hoverSounds = new();
+	int lettersHeard;
+	bool answersHeard;
+
+	bool Asking => Run.IsValid() && Run.Phase == RunPhase.Deciding;
+
+	// answered, and on its way down. The line stays fully written through it
+	bool Exiting { get; set; }
+	bool wasAsking;
+	TimeSince timeSinceAnswered;
+	Vector3 home;
+
+	// on the scene clock, so the pause menu stops the typing along with everything else. Held at "all written"
+	// while it's being put away, so the words don't vanish before it has dropped
+	float Elapsed => Exiting ? 100000f : Asking ? Run.TimeInPhase - StartDelay : 0f;
+
+	protected override void OnUpdate()
+	{
+		if ( wasAsking && !Asking )
+		{
+			Exiting = true;
+			timeSinceAnswered = 0;
+			home = WorldPosition;
+		}
+
+		wasAsking = Asking;
+
+		UpdateSounds();
+
+		if ( !Exiting )
+			return;
+
+		float t = PutAwayTime > 0f ? ( timeSinceAnswered / PutAwayTime ).Clamp( 0f, 1f ) : 1f;
+		WorldPosition = home + Vector3.Up * PutAwayOffset( t );
+
+		// all the way down: gone, and back where it lives for the next time it's asked
+		if ( t >= 1f )
+		{
+			Exiting = false;
+			WorldPosition = home;
+		}
+	}
+
+	/// <summary>A tick per letter as it types, one as the answers pop in, and hover on the answers while they can be clicked.</summary>
+	void UpdateSounds()
+	{
+		if ( !Asking )
+		{
+			// ready for the next time it's asked
+			lettersHeard = 0;
+			answersHeard = false;
+			hoverSounds.Update( null, HoverSound );
+			return;
+		}
+
+		// only ever one tick a frame, so a hitch that types three letters at once doesn't stack three sounds
+		if ( LettersShown > lettersHeard )
+		{
+			lettersHeard = LettersShown;
+
+			if ( LetterSound is not null && Typed.Length > 0 && !char.IsWhiteSpace( Typed[^1] ) )
+				UiSound.Play( LetterSound );
+		}
+
+		if ( AnswersShown && !answersHeard )
+		{
+			answersHeard = true;
+			UiSound.Play( AnswersShownSound );
+		}
+
+		hoverSounds.Update( AnswersShown ? Panel : null, HoverSound, "answer" );
+	}
+
+	/// <summary>
+	/// Height off its spot through the put-away: eases up to RiseHeight over the first RiseShare of it, then falls
+	/// away, slow at the top and quickening, to DropDistance below where it started.
+	/// </summary>
+	float PutAwayOffset( float t )
+	{
+		float share = RiseShare.Clamp( 0.01f, 0.99f );
+
+		if ( t < share )
+		{
+			float up = t / share;
+			return RiseHeight * ( 1f - ( 1f - up ) * ( 1f - up ) );
+		}
+
+		float down = ( t - share ) / ( 1f - share );
+		return RiseHeight.LerpTo( -DropDistance, down * down );
+	}
+
+	int LettersShown => LetterTime <= 0f
+		? Question.Length
+		: Math.Clamp( (int)( Elapsed / LetterTime ), 0, Question.Length );
+
+	string Typed => Question[..LettersShown];
+	string Untyped => Question[LettersShown..];
+
+	bool AnswersShown => Elapsed >= Question.Length * MathF.Max( LetterTime, 0f ) + AnswerDelay;
+
+	void Yes() => Answer( RoundVote.Yes );
+	void No() => Answer( RoundVote.No );
+
+	void Answer( RoundVote vote )
+	{
+		// not before the answers are up, and not through the pause menu
+		if ( !Asking || !AnswersShown || Scene.GetSystem<HitStop>() is { IsPaused: true } )
+			return;
+
+		UiSound.Play( vote == RoundVote.Yes ? YesSound : NoSound );
+		Run?.Answer( vote );
+	}
+
+	protected override int BuildHash() => HashCode.Combine( Asking, Exiting, LettersShown, AnswersShown, Question );
+}

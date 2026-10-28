@@ -1,0 +1,310 @@
+@using System
+@using System.Collections.Generic
+@using System.Globalization
+@using System.Linq
+@using Sandbox
+@using Sandbox.UI
+@inherits PanelComponent
+
+@*
+	The warning for anything being thrown at you. One marker per throw, pointing at it: pinned to the edge of the
+	screen toward it while it's off screen, hovering over it while it's in view.
+
+	The windup reads like a rhythm game's approach circle — a ring closes onto the marker and the throw comes the
+	instant it lands, while the marker heats from white through amber to red and its pulse quickens. At the release
+	it snaps: the ring bursts outward, and a second, tighter ring closes over the flight time instead, so you can
+	still see when it gets to you. It goes when the prop lands, stops or is caught.
+
+	Drop this next to PlayerHud on the HUD's ScreenPanel; it finds the director itself.
+*@
+
+<root>
+	@foreach ( var m in Markers() )
+	{
+		<div class="threat" style="left: @Num( m.X )%; top: @Num( m.Y )%;">
+			<div class="anchor" style="margin-top: @Num( m.Lift )px;">
+
+				@if ( m.RingSize > 0f )
+				{
+					<div class="ring" style="@Ring( m.RingSize, m.RingWidth, m.Color, m.RingAlpha )"></div>
+				}
+
+				@if ( m.BurstAlpha > 0f )
+				{
+					<div class="ring" style="@Ring( m.BurstSize, m.BurstWidth, m.Color, m.BurstAlpha )"></div>
+				}
+
+				<div class="pointer" style="transform: rotate(@Num( m.Angle )deg);">
+					<div class="chev" style="border-color: @Rgba( m.Color, 1f );"></div>
+				</div>
+
+				<div class="core" style="background-color: @Rgba( m.Color, 0.92f ); transform: scale(@Num( m.Scale ));">
+					<label class="bang">!</label>
+				</div>
+
+			</div>
+		</div>
+	}
+</root>
+
+<style>
+	ThrowWarningHud {
+		position: absolute;
+		top: 0px;
+		left: 0px;
+		width: 100%;
+		height: 100%;
+		pointer-events: none;
+		font-family: VCR OSD Mono;
+	}
+
+	.threat {
+		position: absolute;
+		width: 0px;
+		height: 0px;
+	}
+
+	.anchor {
+		position: absolute;
+		width: 0px;
+		height: 0px;
+	}
+
+	.ring {
+		position: absolute;
+		border-style: solid;
+	}
+
+	.pointer {
+		position: absolute;
+		width: 0px;
+		height: 0px;
+	}
+
+	.chev {
+		position: absolute;
+		left: 20px;
+		top: -8px;
+		width: 16px;
+		height: 16px;
+		border-top-width: 5px;
+		border-right-width: 5px;
+		border-bottom-width: 0px;
+		border-left-width: 0px;
+		border-style: solid;
+		transform: rotate(45deg);
+	}
+
+	.core {
+		position: absolute;
+		left: -16px;
+		top: -16px;
+		width: 32px;
+		height: 32px;
+		border-radius: 16px;
+		justify-content: center;
+		align-items: center;
+		box-shadow: 0px 0px 12px rgba(0, 0, 0, 0.6);
+	}
+
+	.bang {
+		font-size: 20px;
+		font-weight: bold;
+		color: rgba(20, 10, 10, 0.95);
+	}
+</style>
+
+@code {
+	// how far in from the edges an off-screen marker sits, as fractions of the screen
+	const float EdgeX = 0.07f;
+	const float EdgeY = 0.1f;
+
+	// how far above something in view the marker floats, so it doesn't sit on top of what it's warning about
+	const float OnScreenLift = -56f;
+
+	// the approach ring: this wide when the windup starts, the size of the marker when the throw comes
+	const float RingStart = 170f;
+	const float RingEnd = 42f;
+
+	// the burst at the release, and the flight ring after it
+	const float BurstTime = 0.3f;
+	const float FlightRingStart = 90f;
+
+	// pulse rate over the windup, beats per second, and in flight
+	const float PulseStart = 1.5f;
+	const float PulseEnd = 8f;
+	const float PulseFlight = 10f;
+
+	static readonly Color Cold = new( 1f, 1f, 1f );
+	static readonly Color Warm = new( 1f, 0.69f, 0.19f );
+	static readonly Color Hot = new( 0.92f, 0.2f, 0.16f );
+
+	EnemyDirector director;
+
+	struct Marker
+	{
+		public float X, Y, Lift, Angle, Scale;
+		public Color Color;
+		public float RingSize, RingWidth, RingAlpha;
+		public float BurstSize, BurstWidth, BurstAlpha;
+	}
+
+	IReadOnlyList<ThrowThreat> Threats()
+	{
+		director ??= Scene.GetSystem<EnemyDirector>();
+		return director?.CurrentThreats() ?? (IReadOnlyList<ThrowThreat>)Array.Empty<ThrowThreat>();
+	}
+
+	List<Marker> Markers()
+	{
+		var list = new List<Marker>();
+		var camera = Scene.Camera;
+
+		if ( !camera.IsValid() )
+			return list;
+
+		foreach ( var threat in Threats() )
+			list.Add( Build( camera, threat ) );
+
+		return list;
+	}
+
+	Marker Build( CameraComponent camera, ThrowThreat threat )
+	{
+		var m = new Marker { Scale = 1f };
+
+		Place( camera, threat.Position, ref m );
+
+		if ( !threat.Released )
+		{
+			float t = threat.Windup;
+			float elapsed = threat.SinceWindup;
+
+			m.Color = Heat( t );
+
+			// linear on purpose: the ring has to arrive at a pace you can read and time a dodge to
+			m.RingSize = MathX.Lerp( RingStart, RingEnd, t );
+			m.RingWidth = MathX.Lerp( 2f, 5f, t );
+			m.RingAlpha = MathX.Lerp( 0.35f, 1f, t );
+
+			// the beat speeds up as the ring closes, and is integrated so the rate can climb without the pulse jumping
+			float phase = 2f * MathF.PI * ( PulseStart * elapsed + ( PulseEnd - PulseStart ) * elapsed * elapsed / ( 2f * MathF.Max( threat.WindupTime, 0.01f ) ) );
+			m.Scale = 1f + MathX.Lerp( 0.08f, 0.2f, t ) * MathF.Max( 0f, MathF.Sin( phase ) );
+
+			return m;
+		}
+
+		float since = threat.SinceRelease;
+		float flight = ( since / MathF.Max( threat.FlightTime, 0.01f ) ).Clamp( 0f, 1f );
+
+		m.Color = Hot;
+
+		// the snap: a burst outward and the marker kicking, then settling into a fast flutter
+		float burst = ( since / BurstTime ).Clamp( 0f, 1f );
+
+		if ( burst < 1f )
+		{
+			m.BurstSize = MathX.Lerp( RingEnd, 150f, burst );
+			m.BurstWidth = MathX.Lerp( 6f, 1f, burst );
+			m.BurstAlpha = 1f - burst;
+		}
+
+		// the second ring: closing over the flight, so the moment it reaches you still has a shape
+		if ( flight < 1f )
+		{
+			m.RingSize = MathX.Lerp( FlightRingStart, RingEnd, flight );
+			m.RingWidth = 3f;
+			m.RingAlpha = 0.85f;
+		}
+
+		float kick = MathX.Lerp( 1.5f, 1f, burst );
+		m.Scale = kick + 0.15f * MathF.Max( 0f, MathF.Sin( 2f * MathF.PI * PulseFlight * since ) );
+
+		return m;
+	}
+
+	/// <summary>
+	/// Over the thing itself while it's in view, arrow pointing down at it. Otherwise pinned to the screen's edge on
+	/// the side you'd turn toward, arrow pointing out at it.
+	///
+	/// Which side is worked out in the camera's own frame, not from the screen projection: a projection is only
+	/// meaningful for points in front of the lens, and for anything well off to the side or behind it comes back
+	/// mirrored — which is what flung the marker to the wrong edge once he was more than about 45 degrees off.
+	/// In the camera's frame "he's to my left" is just a positive left component, wherever he is.
+	/// </summary>
+	void Place( CameraComponent camera, Vector3 world, ref Marker m )
+	{
+		// forward, left, up, relative to the lens
+		var local = camera.WorldRotation.Inverse * ( world - camera.WorldPosition );
+
+		if ( local.x > 1f )
+		{
+			var point = camera.PointToScreenNormal( world, out bool behind );
+
+			bool inView = !behind
+				&& point.x >= EdgeX && point.x <= 1f - EdgeX
+				&& point.y >= EdgeY && point.y <= 1f - EdgeY;
+
+			if ( inView )
+			{
+				m.X = point.x * 100f;
+				m.Y = point.y * 100f;
+				m.Lift = OnScreenLift;
+				m.Angle = 90f;
+				return;
+			}
+		}
+
+		float width = MathF.Max( Screen.Width, 1f );
+		float height = MathF.Max( Screen.Height, 1f );
+
+		// screen x runs right and y runs down, so right is minus left and down is minus up. For anything in front of
+		// the lens this is the same direction the projection would give, so the marker slides off the edge of the
+		// screen and onto it without a jump; behind the lens it keeps pointing the way to turn
+		var dir = new Vector2( -local.y, -local.z );
+
+		// dead behind, with nothing to choose a side by: the bottom edge, the "behind you" edge
+		if ( dir.Length < 0.001f )
+			dir = new Vector2( 0f, 1f );
+
+		float halfWidth = width * ( 0.5f - EdgeX );
+		float halfHeight = height * ( 0.5f - EdgeY );
+		float reach = MathF.Min(
+			MathF.Abs( dir.x ) > 0.001f ? halfWidth / MathF.Abs( dir.x ) : float.MaxValue,
+			MathF.Abs( dir.y ) > 0.001f ? halfHeight / MathF.Abs( dir.y ) : float.MaxValue );
+
+		var edge = dir * reach;
+
+		m.X = ( 0.5f + edge.x / width ) * 100f;
+		m.Y = ( 0.5f + edge.y / height ) * 100f;
+		m.Lift = 0f;
+		m.Angle = MathF.Atan2( dir.y, dir.x ) * ( 180f / MathF.PI );
+	}
+
+	/// <summary>White when the windup starts, amber through the middle, red as the throw comes.</summary>
+	static Color Heat( float t )
+	{
+		const float split = 0.55f;
+
+		return t < split
+			? Color.Lerp( Cold, Warm, t / split )
+			: Color.Lerp( Warm, Hot, ( t - split ) / ( 1f - split ) );
+	}
+
+	static string Ring( float size, float width, Color color, float alpha )
+	{
+		float half = size * 0.5f;
+
+		return $"width: {Num( size )}px; height: {Num( size )}px; left: {Num( -half )}px; top: {Num( -half )}px; " +
+			$"border-radius: {Num( half )}px; border-width: {Num( width )}px; border-color: {Rgba( color, alpha )};";
+	}
+
+	static string Rgba( Color color, float alpha ) =>
+		$"rgba({(int)( color.r * 255f )}, {(int)( color.g * 255f )}, {(int)( color.b * 255f )}, {Num( alpha )})";
+
+	// a decimal point, never a comma: a locale that writes 12,5 would turn the style into nonsense
+	static string Num( float value ) => value.ToString( "0.##", CultureInfo.InvariantCulture );
+
+	// redrawn every frame while anything is coming — it's all motion — and left alone the rest of the time
+	protected override int BuildHash() => Threats().Count == 0 ? 0 : HashCode.Combine( Time.Now, Threats().Count );
+}

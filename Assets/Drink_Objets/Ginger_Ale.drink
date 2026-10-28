@@ -1,0 +1,26 @@
+{
+  "Name": "Ginger Ale",
+  "Flavour": "Settles the stomach",
+  "Upsides": [
+    "Take about 9% less damage"
+  ],
+  "Downsides": [],
+  "Effects": [
+    {
+      "Stat": "Toughness",
+      "Percent": 10,
+      "Flat": 0
+    }
+  ],
+  "Rarity": "Blue",
+  "Weight": 1,
+  "OnePerNight": false,
+  "Price": 14,
+  "Tint": "1,1,1,1",
+  "Model": {
+    "Id": "bc05e970-bb01-4c30-97b7-b97b658e4d2a",
+    "Path": "models/bottle_models/can_blue.vmdl"
+  },
+  "__references": [],
+  "__version": 0
+}

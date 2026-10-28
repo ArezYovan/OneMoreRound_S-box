@@ -1,0 +1,396 @@
+{
+  "RootObject": {
+    "__guid": "c726f16b-f1c1-438d-b946-0d791b27afac",
+    "__version": 2,
+    "Flags": 0,
+    "Name": "bottleupgradesroot",
+    "Position": "0,0,0",
+    "Rotation": "0,0,-0.707106769,0.707106769",
+    "Scale": "1,1,1",
+    "Tags": "",
+    "Enabled": true,
+    "NetworkMode": 0,
+    "NetworkFlags": 0,
+    "NetworkOrphaned": 0,
+    "NetworkTransmit": true,
+    "OwnerTransfer": 1,
+    "Components": [],
+    "Children": [
+      {
+        "__guid": "e4d7474b-72d1-42df-9778-a1399763101b",
+        "__version": 2,
+        "Flags": 0,
+        "Name": "bottle_animations",
+        "Position": "6.10424995,9.60199165,0.0188064612",
+        "Rotation": "0,0,0,1",
+        "Scale": "1,1,1",
+        "Tags": "",
+        "Enabled": true,
+        "NetworkMode": 0,
+        "NetworkFlags": 0,
+        "NetworkOrphaned": 0,
+        "NetworkTransmit": true,
+        "OwnerTransfer": 1,
+        "Components": [
+          {
+            "__type": "Sandbox.SkinnedModelRenderer",
+            "__guid": "048e4d47-1dc1-4138-a1a1-69aaab50f393",
+            "__enabled": true,
+            "Flags": 0,
+            "AnimationGraph": {
+              "Id": "bbef10ec-8e93-427c-9a3d-cfbae73785f0",
+              "Path": "animgraphs/bottle_animations.vanmgrph"
+            },
+            "BodyGroups": 18446744073709551615,
+            "BoneMergeTarget": null,
+            "CreateAttachments": false,
+            "CreateBoneObjects": true,
+            "LodOverride": null,
+            "MaterialGroup": null,
+            "MaterialOverride": null,
+            "Materials": null,
+            "Model": {
+              "Id": "50825cbb-d166-449f-86a1-105d7bd7f208",
+              "Path": "models/barmodels/bottle_animations.vmdl"
+            },
+            "Morphs": {},
+            "OnComponentDestroy": null,
+            "OnComponentDisabled": null,
+            "OnComponentEnabled": null,
+            "OnComponentFixedUpdate": null,
+            "OnComponentStart": null,
+            "OnComponentUpdate": null,
+            "Parameters": {
+              "bools": {},
+              "ints": {},
+              "floats": {},
+              "vectors": {},
+              "rotations": {}
+            },
+            "PlaybackRate": 1,
+            "RenderOptions": {
+              "GameLayer": true,
+              "OverlayLayer": false,
+              "BloomLayer": false,
+              "AfterUILayer": false
+            },
+            "RenderType": "On",
+            "Sequence": {
+              "Name": null,
+              "Looping": true,
+              "Blending": false
+            },
+            "Tint": "1,1,1,1",
+            "UseAnimGraph": true
+          },
+          {
+            "__type": "BarShop",
+            "__guid": "b6916e8d-8c78-4682-9041-014225bf9d98",
+            "__enabled": true,
+            "Flags": 0,
+            "BlackHold": 1,
+            "BlendSpeed": 6,
+            "BottleModel": null,
+            "CameraLean": "6,3",
+            "CameraSpot": {
+              "_type": "gameobject",
+              "go": "a5178b5e-7708-468a-80c7-a150c3d42abf"
+            },
+            "Catalog": [
+              {
+                "Id": "56f11d8c-f75e-4d23-a4ec-d586bc9e8c31",
+                "Path": "drink_objets/beer_bottle.drink"
+              },
+              {
+                "Id": "a5553521-e3f3-4b84-9da1-bb7d98bf786a",
+                "Path": "drink_objets/john_whisky.drink"
+              },
+              {
+                "Id": "9370d119-eb86-4a43-bc79-63cb9ac20674",
+                "Path": "drink_objets/wine.drink"
+              }
+            ],
+            "FadeTime": 0.35,
+            "HoverPadding": 0,
+            "LogShop": true,
+            "OnComponentDestroy": null,
+            "OnComponentDisabled": null,
+            "OnComponentEnabled": null,
+            "OnComponentFixedUpdate": null,
+            "OnComponentStart": null,
+            "OnComponentUpdate": null,
+            "PickRadius": 16,
+            "ReadyEvent": "bottles_ready",
+            "RerollParameter": "ReRoll",
+            "RerollPrice": 25,
+            "Rig": null,
+            "Slots": [
+              {
+                "_type": "gameobject",
+                "go": "97b8f2a8-37ae-4973-a9a0-820b5c402b3b"
+              },
+              {
+                "_type": "gameobject",
+                "go": "00ed87a0-456b-4eb3-8985-2f70044010aa"
+              },
+              {
+                "_type": "gameobject",
+                "go": "846ee363-ccaf-4fd0-bb54-85104a0f50f7"
+              }
+            ],
+            "SwapEvent": "bottles_swap"
+          }
+        ],
+        "Children": [
+          {
+            "__guid": "93b89fb2-9b37-4e80-ba70-84699345221d",
+            "__version": 2,
+            "Flags": 0,
+            "Name": "Root",
+            "Position": "0,0,0",
+            "Rotation": "0,0,0,1",
+            "Scale": "1,1,1",
+            "Tags": "",
+            "Enabled": true,
+            "NetworkMode": 2,
+            "NetworkFlags": 0,
+            "NetworkOrphaned": 0,
+            "NetworkTransmit": true,
+            "OwnerTransfer": 1,
+            "Components": [],
+            "Children": [
+              {
+                "__guid": "97b8f2a8-37ae-4973-a9a0-820b5c402b3b",
+                "__version": 2,
+                "Flags": 0,
+                "Name": "Bone_001",
+                "Position": "0,0,0",
+                "Rotation": "0,0,0,1",
+                "Scale": "1,1,1",
+                "Tags": "",
+                "Enabled": true,
+                "NetworkMode": 2,
+                "NetworkFlags": 0,
+                "NetworkOrphaned": 0,
+                "NetworkTransmit": true,
+                "OwnerTransfer": 1,
+                "Components": [],
+                "Children": []
+              },
+              {
+                "__guid": "00ed87a0-456b-4eb3-8985-2f70044010aa",
+                "__version": 2,
+                "Flags": 0,
+                "Name": "Bone_002",
+                "Position": "0,0,0",
+                "Rotation": "0,0,0,1",
+                "Scale": "1,1,1",
+                "Tags": "",
+                "Enabled": true,
+                "NetworkMode": 2,
+                "NetworkFlags": 0,
+                "NetworkOrphaned": 0,
+                "NetworkTransmit": true,
+                "OwnerTransfer": 1,
+                "Components": [],
+                "Children": []
+              },
+              {
+                "__guid": "846ee363-ccaf-4fd0-bb54-85104a0f50f7",
+                "__version": 2,
+                "Flags": 0,
+                "Name": "Bone_003",
+                "Position": "0,0,0",
+                "Rotation": "0,0,0,1",
+                "Scale": "1,1,1",
+                "Tags": "",
+                "Enabled": true,
+                "NetworkMode": 2,
+                "NetworkFlags": 0,
+                "NetworkOrphaned": 0,
+                "NetworkTransmit": true,
+                "OwnerTransfer": 1,
+                "Components": [],
+                "Children": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "__guid": "a5178b5e-7708-468a-80c7-a150c3d42abf",
+        "__version": 2,
+        "Flags": 0,
+        "Name": "BarCameraHolder",
+        "Position": "6.10424805,108.431824,42.9629211",
+        "Rotation": "0.0462031551,0.0462031253,-0.705595851,0.705595851",
+        "Scale": "1,1,1",
+        "Tags": "",
+        "Enabled": true,
+        "NetworkMode": 0,
+        "NetworkFlags": 0,
+        "NetworkOrphaned": 0,
+        "NetworkTransmit": true,
+        "OwnerTransfer": 1,
+        "Components": [],
+        "Children": []
+      },
+      {
+        "__guid": "876c7a20-d62c-8b5d-b078-d9bca5e285b4",
+        "__version": 2,
+        "Flags": 0,
+        "Name": "BarQuestion",
+        "Position": "0,-10.0189838,42.4663849",
+        "Rotation": "0,0,0.707106769,0.707106769",
+        "Scale": "1,1,1",
+        "Tags": "",
+        "Enabled": true,
+        "NetworkMode": 2,
+        "NetworkFlags": 0,
+        "NetworkOrphaned": 0,
+        "NetworkTransmit": true,
+        "OwnerTransfer": 1,
+        "Components": [
+          {
+            "__type": "Sandbox.UI.RoundQuestion",
+            "__guid": "b9f43363-6b7e-85db-b48a-09787e42f244",
+            "__enabled": true,
+            "Flags": 0,
+            "AnswerDelay": 1,
+            "DropDistance": 80,
+            "LetterTime": 0.1,
+            "OnComponentDestroy": null,
+            "OnComponentDisabled": null,
+            "OnComponentEnabled": null,
+            "OnComponentFixedUpdate": null,
+            "OnComponentStart": null,
+            "OnComponentUpdate": null,
+            "PutAwayTime": 0.6,
+            "Question": "One more round?",
+            "RiseHeight": 8,
+            "RiseShare": 0.25,
+            "StartDelay": 2.3
+          },
+          {
+            "__type": "Sandbox.WorldPanel",
+            "__guid": "04981bd3-f462-856b-83b4-6de5e8aaec90",
+            "__enabled": true,
+            "Flags": 0,
+            "HorizontalAlign": "Center",
+            "InteractionRange": 1000,
+            "LookAtCamera": false,
+            "OnComponentDestroy": null,
+            "OnComponentDisabled": null,
+            "OnComponentEnabled": null,
+            "OnComponentFixedUpdate": null,
+            "OnComponentStart": null,
+            "OnComponentUpdate": null,
+            "PanelSize": "5000,2000",
+            "RenderOptions": {
+              "GameLayer": true,
+              "OverlayLayer": false,
+              "BloomLayer": false,
+              "AfterUILayer": false
+            },
+            "RenderScale": 1,
+            "VerticalAlign": "Center"
+          }
+        ],
+        "Children": []
+      },
+      {
+        "__guid": "27f473b0-b95c-844e-81c8-04f1499561d9",
+        "__version": 2,
+        "Flags": 0,
+        "Name": "ShopBoard",
+        "Position": "4.14855957,-10.0189838,53.9716034",
+        "Rotation": "0,0,0.707106829,0.707106829",
+        "Scale": "1,1,1",
+        "Tags": "",
+        "Enabled": true,
+        "NetworkMode": 2,
+        "NetworkFlags": 0,
+        "NetworkOrphaned": 0,
+        "NetworkTransmit": true,
+        "OwnerTransfer": 1,
+        "Components": [
+          {
+            "__type": "Sandbox.WorldPanel",
+            "__guid": "337fa70e-9602-8b41-a69e-6579f52de166",
+            "__enabled": true,
+            "Flags": 0,
+            "HorizontalAlign": "Center",
+            "InteractionRange": 1000,
+            "LookAtCamera": false,
+            "OnComponentDestroy": null,
+            "OnComponentDisabled": null,
+            "OnComponentEnabled": null,
+            "OnComponentFixedUpdate": null,
+            "OnComponentStart": null,
+            "OnComponentUpdate": null,
+            "PanelSize": "5000,2000",
+            "RenderOptions": {
+              "GameLayer": true,
+              "OverlayLayer": false,
+              "BloomLayer": false,
+              "AfterUILayer": false
+            },
+            "RenderScale": 1,
+            "VerticalAlign": "Center"
+          },
+          {
+            "__type": "Sandbox.UI.ShopBoard",
+            "__guid": "bc118fcb-e3d8-8c2a-87ee-eb1671c48e93",
+            "__enabled": true,
+            "Flags": 0,
+            "AppearDelay": 1.5,
+            "AppearTime": 0.5,
+            "CountSpeed": 10,
+            "DropDistance": 80,
+            "MinCountRate": 60,
+            "OnComponentDestroy": null,
+            "OnComponentDisabled": null,
+            "OnComponentEnabled": null,
+            "OnComponentFixedUpdate": null,
+            "OnComponentStart": null,
+            "OnComponentUpdate": null,
+            "Overshoot": 8,
+            "PutAwayRise": 8,
+            "PutAwayTime": 0.6,
+            "RiseFrom": 40
+          }
+        ],
+        "Children": []
+      }
+    ],
+    "__properties": {
+      "NetworkInterpolation": true,
+      "PhysicsMode": "Physics3D",
+      "TimeScale": 1,
+      "WantsSystemScene": true,
+      "Metadata": {},
+      "NavMesh": {
+        "Enabled": false,
+        "IncludeStaticBodies": true,
+        "IncludeKeyframedBodies": true,
+        "EditorAutoUpdate": false,
+        "AgentHeight": 64,
+        "AgentRadius": 16,
+        "AgentStepSize": 18,
+        "AgentMaxSlope": 40,
+        "ExcludedBodies": "",
+        "IncludedBodies": "",
+        "DeferGeneration": false,
+        "CustomBounds": false
+      }
+    },
+    "__variables": []
+  },
+  "ResourceVersion": 2,
+  "ShowInMenu": false,
+  "MenuPath": null,
+  "MenuIcon": null,
+  "DontBreakAsTemplate": false,
+  "__references": [],
+  "__version": 2
+}

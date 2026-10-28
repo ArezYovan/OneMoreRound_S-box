@@ -1,0 +1,26 @@
+{
+  "Name": "Long Island",
+  "Flavour": "Five spirits and a splash of cola",
+  "Upsides": [
+    "+25% money for clearing a round"
+  ],
+  "Downsides": [],
+  "Effects": [
+    {
+      "Stat": "Payout",
+      "Percent": 25,
+      "Flat": 0
+    }
+  ],
+  "Rarity": "Purple",
+  "Weight": 1,
+  "OnePerNight": false,
+  "Price": 35,
+  "Tint": "1,1,1,1",
+  "Model": {
+    "Id": "8462014d-0dda-4c27-ba04-76a4e6a93639",
+    "Path": "models/bottle_models/glass_cup/glass_red.vmdl"
+  },
+  "__references": [],
+  "__version": 0
+}

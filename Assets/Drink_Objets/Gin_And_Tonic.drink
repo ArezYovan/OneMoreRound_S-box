@@ -1,0 +1,32 @@
+{
+  "Name": "Gin and Tonic",
+  "Flavour": "Gin, tonic, lime",
+  "Upsides": [
+    "Drinks and new bottles cost about 17% less",
+    "+10% money for clearing a round"
+  ],
+  "Downsides": [],
+  "Effects": [
+    {
+      "Stat": "Haggle",
+      "Percent": 20,
+      "Flat": 0
+    },
+    {
+      "Stat": "Payout",
+      "Percent": 10,
+      "Flat": 0
+    }
+  ],
+  "Rarity": "Purple",
+  "Weight": 1,
+  "OnePerNight": false,
+  "Price": 32,
+  "Tint": "1,1,1,1",
+  "Model": {
+    "Id": "5b3aaec4-4b8d-4427-833e-9b8dea0a9e0d",
+    "Path": "models/bottle_models/glass_cup/glass_water.vmdl"
+  },
+  "__references": [],
+  "__version": 0
+}

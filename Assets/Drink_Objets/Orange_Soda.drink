@@ -1,0 +1,26 @@
+{
+  "Name": "Orange Soda",
+  "Flavour": "Quick and sharp",
+  "Upsides": [
+    "Jabs hit 20% harder"
+  ],
+  "Downsides": [],
+  "Effects": [
+    {
+      "Stat": "JabDamage",
+      "Percent": 20,
+      "Flat": 0
+    }
+  ],
+  "Rarity": "Blue",
+  "Weight": 1,
+  "OnePerNight": false,
+  "Price": 12,
+  "Tint": "1,1,1,1",
+  "Model": {
+    "Id": "4aad9a70-0659-472d-9f56-7db6728248f4",
+    "Path": "models/bottle_models/can_red.vmdl"
+  },
+  "__references": [],
+  "__version": 0
+}

@@ -1,7 +1,7 @@
 {
   "Title": "OneMoreRound",
   "Type": "game",
-  "Org": "local",
+  "Org": "noclipdev",
   "Ident": "onemoreround",
   "Schema": 1,
   "IncludeSourceFiles": false,
@@ -10,5 +10,8 @@
   "EditorReferences": null,
   "Mounts": null,
   "IsStandaloneOnly": false,
-  "Metadata": {}
+  "Metadata": {
+    "StartupScene": "scenes/mainmenu.scene",
+    "LaunchMode": "Normal"
+  }
 }

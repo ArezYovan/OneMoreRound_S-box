@@ -1,0 +1,261 @@
+@using System
+@using System.Linq
+@using Sandbox
+@using Sandbox.UI
+@inherits PanelComponent
+
+@*
+	Escape stops the night where it stands: the scene's clock goes to zero through HitStop, the same stop the
+	knockout uses, so nothing moves, swings or lands until you come back. Put it on the HUD's ScreenPanel.
+
+	The s&box overlay normally owns Escape. This takes the press first and eats it, so the engine's own
+	pause menu never opens — its settings are one button away instead.
+*@
+
+<root class="@( Open ? "open" : "" )">
+	@if ( Open )
+	{
+		<div class="shade"></div>
+
+		<div class="menu">
+			<label class="title">PAUSED</label>
+			<button class="button" onclick=@ResumeButton>RESUME</button>
+			<button class="button" onclick=@( () => Press( () => Game.Overlay.ShowSettingsModal() ) )>@( "S&BOX SETTINGS" )</button>
+			<button class="button quiet" onclick=@( () => Press( Quit ) )>QUIT</button>
+		</div>
+
+		<div class="controls">
+			@foreach ( var (key, action) in Controls )
+			{
+				<div class="row">
+					<label class="key">@key</label>
+					<label class="action">- @action</label>
+				</div>
+			}
+		</div>
+	}
+</root>
+
+<style>
+	PauseMenu {
+		position: absolute;
+		top: 0px;
+		left: 0px;
+		width: 100%;
+		height: 100%;
+		font-family: VCR OSD Mono;
+		color: white;
+		pointer-events: none;
+		z-index: 100;
+	}
+
+	/* only catches clicks while it's up — shut, it must not swallow the game's */
+	PauseMenu.open {
+		pointer-events: all;
+	}
+
+	.shade {
+		position: absolute;
+		top: 0px;
+		left: 0px;
+		width: 100%;
+		height: 100%;
+		background-color: rgba(0, 0, 0, 0.75);
+	}
+
+	.menu {
+		position: absolute;
+		top: 0px;
+		left: 0px;
+		width: 100%;
+		height: 100%;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.title {
+		font-size: 64px;
+		letter-spacing: 6px;
+		margin-bottom: 36px;
+		color: rgba(255, 236, 200, 1);
+		text-shadow: 0px 4px 12px rgba(0, 0, 0, 0.8);
+	}
+
+	.button {
+		width: 320px;
+		height: 52px;
+		margin-bottom: 12px;
+		align-items: center;
+		justify-content: center;
+		font-size: 22px;
+		letter-spacing: 3px;
+		color: rgba(20, 16, 14, 1);
+		background-color: rgba(255, 236, 200, 1);
+		border-radius: 3px;
+		transition: all 0.1s ease-out;
+	}
+
+	.button:hover {
+		background-color: white;
+		transform: scale(1.03);
+	}
+
+	.button.quiet {
+		color: rgba(255, 255, 255, 0.6);
+		background-color: rgba(255, 255, 255, 0.08);
+	}
+
+	.button.quiet:hover {
+		color: white;
+		background-color: rgba(255, 255, 255, 0.16);
+	}
+
+	/* ---------- controls, bottom left ---------- */
+
+	.controls {
+		position: absolute;
+		left: 32px;
+		bottom: 32px;
+		flex-direction: column;
+		padding: 16px 20px;
+		background-color: rgba(0, 0, 0, 0.6);
+		border: 1px solid rgba(255, 255, 255, 0.15);
+		border-radius: 4px;
+		font-size: 16px;
+	}
+
+	.row {
+		flex-direction: row;
+		margin: 3px 0px;
+	}
+
+	/* a fixed-width key column is what lines the dashes up */
+	.key {
+		width: 110px;
+		color: rgba(255, 236, 200, 1);
+	}
+
+	.action {
+		color: rgba(255, 255, 255, 0.8);
+	}
+</style>
+
+@code {
+	[Property, Group( "Sound" ), Description( "Played when Escape pauses the game." )]
+	public SoundEvent OpenSound { get; set; }
+
+	[Property, Group( "Sound" ), Description( "Played when the game resumes." )]
+	public SoundEvent CloseSound { get; set; }
+
+	[Property, Group( "Sound" ), Description( "Played when the pointer lands on a button." )]
+	public SoundEvent HoverSound { get; set; }
+
+	[Property, Group( "Sound" ), Description( "Played when a button is pressed. QUIT goes straight to the menu scene, which can cut it short." )]
+	public SoundEvent PressSound { get; set; }
+
+	/// <summary>True while the game is paused on this menu.</summary>
+	public bool Open { get; private set; }
+
+	readonly HoverSounds hoverSounds = new();
+
+	static readonly (string Key, string Action)[] Controls =
+	{
+		("WASD", "move"),
+		("LMB", "jab"),
+		("LMB hold", "hook"),
+		("RMB", "block"),
+		("Q", "kick"),
+		("F", "lock on"),
+		("E", "pickup / throw"),
+		("CTRL", "slide"),
+		("SPACE", "jump"),
+	};
+
+	RunManager run;
+	RunManager Run => run.IsValid() ? run : ( run = Scene.GetAllComponents<RunManager>().FirstOrDefault() );
+
+	MouseVisibility cursorBefore;
+
+	protected override void OnUpdate()
+	{
+		if ( Input.EscapePressed )
+		{
+			// eaten here, so the engine's own pause menu never opens over ours
+			Input.EscapePressed = false;
+
+			if ( !Open )
+				Pause();
+			else
+				Resume();
+		}
+
+		// a free cursor for the buttons, asked for every frame since anything else wanting the mouse takes it
+		if ( Open )
+			Mouse.Visibility = MouseVisibility.Visible;
+
+		hoverSounds.Update( Open ? Panel : null, HoverSound, "button" );
+	}
+
+	void Press( Action action )
+	{
+		UiSound.Play( PressSound );
+		action();
+	}
+
+	/// <summary>
+	/// RESUME. The click is left mouse, which is also the punch — cleared here so the press that closed the menu
+	/// can't come out as a jab the moment the game starts again. Plays the close sound if there is one, the press
+	/// sound if not, never both.
+	/// </summary>
+	void ResumeButton()
+	{
+		Input.Clear( "Attack1" );
+		UiSound.Play( CloseSound ?? PressSound );
+		Resume( withSound: false );
+	}
+
+	protected override void OnDisabled()
+	{
+		if ( Open )
+			Resume( withSound: false );
+	}
+
+	void Pause()
+	{
+		// knocked out or done, the night already has its own stopped screen and menu
+		if ( Run.IsValid() && Run.Phase is RunPhase.Down or RunPhase.Over )
+			return;
+
+		Open = true;
+		cursorBefore = Mouse.Visibility;
+		Scene.GetSystem<HitStop>()?.Pause();
+		UiSound.Play( OpenSound );
+	}
+
+	/// <summary>Unpause. Quietly when quitting or switched off — the close sound is for going back to the game.</summary>
+	void Resume( bool withSound = true )
+	{
+		if ( !Open )
+			return;
+
+		Open = false;
+
+		// back to whatever the cursor was — hidden in the fight, still free at the bar
+		Mouse.Visibility = cursorBefore;
+		Scene.GetSystem<HitStop>()?.Resume();
+
+		if ( withSound )
+			UiSound.Play( CloseSound );
+	}
+
+	void Quit()
+	{
+		Resume( withSound: false );
+
+		if ( Run.IsValid() )
+			Run.QuitToMenu();
+	}
+
+	protected override int BuildHash() => HashCode.Combine( Open );
+}

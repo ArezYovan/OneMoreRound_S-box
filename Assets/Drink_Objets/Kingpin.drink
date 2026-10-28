@@ -1,0 +1,33 @@
+{
+  "Name": "Kingpin",
+  "Flavour": "Canadian whisky",
+  "Upsides": [
+    "Kick a man into his friends and every one he hits goes down - slide tackles too, if you have them"
+  ],
+  "Downsides": [
+    "Kicks cost about 40% more stamina"
+  ],
+  "Effects": [
+    {
+      "Stat": "BowlingBall",
+      "Percent": 0,
+      "Flat": 1
+    },
+    {
+      "Stat": "KickEfficiency",
+      "Percent": -30,
+      "Flat": 0
+    }
+  ],
+  "Rarity": "Gold",
+  "Weight": 1,
+  "OnePerNight": true,
+  "Price": 50,
+  "Tint": "1,1,1,1",
+  "Model": {
+    "Id": "0f6f899a-ea7e-4370-b3b2-b927122c59a2",
+    "Path": "models/bottle_models/crown_royal.vmdl"
+  },
+  "__references": [],
+  "__version": 0
+}

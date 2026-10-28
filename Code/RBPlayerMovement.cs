@@ -45,6 +45,13 @@ public sealed class RBPlayerMovement : Component
 	// still fire, instead of being dropped because you weren't grounded that tick.
 	[Property] public float jumpBufferTime { get; set; } = 0.3f;
 
+	[Header( "Knockback" )]
+	// Seconds a hit (an enemy's kick or punch) takes your legs: no steering and no ground braking, only
+	// knockbackDrag, so the hit actually carries you. Without it the ground friction ate a kick in a few ticks.
+	[Property] public float knockbackTime { get; set; } = 0.5f;
+	// How fast the knockback bleeds off while it lasts. Lower sends you further.
+	[Property] public float knockbackDrag { get; set; } = 1.5f;
+
 	[Header( "Slope Handling" )]
 	[Property] public float maxSlopeAngle { get; set; } = 50f;
 	// Downward push that keeps you glued to the slope over crests / when descending.
@@ -71,44 +78,28 @@ public sealed class RBPlayerMovement : Component
 	Rigidbody rb;
 	PlayerHealth healthComponent;
 	Sliding slidingComponent;
-	GrappleGun grappleComponent;
-	WallRunning wallRunComponent;
-	WallClimb wallClimbComponent;
-	RailGrinding railGrindComponent;
-	GroundPound groundPoundComponent;
-	GrappleStrike strikeComponent;
+	LockOn lockOnComponent;
+	DashAbility dashComponent;
+	PlayerCombat combatComponent;
 	float jumpBufferTimer;
 	float momentumTimer;
+	float knockbackTimer;
+	float floatTimer;
 	bool wasGroundedLast;
 
-	// True while the grapple is active at all (hook flying or attached) — used to
-	// disable ground friction so you slide instead of being braked.
-	bool IsGrappling => grappleComponent is not null && grappleComponent.grappling;
+	// True while a hit is carrying the player (see Knockback); input and ground braking wait it out.
+	public bool IsKnockedBack => knockbackTimer > 0f;
 
-	// True only once the hook has landed and the reel owns your velocity. While attached,
-	// this script applies NO input — the grapple's own GrappleAirControl is the single
-	// steering knob (input used to be applied twice, which let you exceed max speed).
-	bool GrappleAttached => IsGrappling && grappleComponent.HookAttached;
+	// True while a dash is carrying the player a set distance (it owns velocity until it ends).
+	public bool IsDashing => dashComponent is not null && dashComponent.IsDashing;
 
-	bool IsWallRunningNow => wallRunComponent is not null && wallRunComponent.IsWallRunning;
+	// True while an attack's lunge is carrying the player into the target (PlayerCombat owns velocity until it ends).
+	public bool IsLunging => combatComponent is not null && combatComponent.IsLunging;
 
-	bool IsWallClimbingNow => wallClimbComponent is not null && wallClimbComponent.IsClimbing;
-
-	// True while GrappleStrike is yanking the player at its target. It owns velocity for the pull, the
-	// same as an attached grapple, so input steering and the extra fall weight both stand down.
-	bool IsStrikeReeling => strikeComponent is not null && strikeComponent.IsControllingPlayer;
-
-	// True while the rail-grind owns the player's velocity & gravity. Public so the other
-	// movement systems can stand down (mirrors IsWallRunning etc.).
-	public bool IsGrindingNow => railGrindComponent is not null && railGrindComponent.IsGrinding;
-
-	// True while a ground pound is slamming the player down (it owns velocity until landing).
-	public bool IsGroundPounding => groundPoundComponent is not null && groundPoundComponent.IsPounding;
-
-	// True while any special movement state owns the player — so a plain air-jump (DoubleJump)
-	// shouldn't fire here (wall run/climb and grapple handle their own jumps; grind/hover/pound
-	// own vertical motion). Lets DoubleJump tell "normal air" apart from a special state.
-	public bool InSpecialMovement => IsWallRunningNow || IsWallClimbingNow || IsGrappling || IsStrikeReeling || IsGrindingNow || IsGroundPounding;
+	// True while something other than plain walking owns the player. The wall run, wall climb, grapple,
+	// grind and ground pound that used to feed this are gone; the dash is what's left, and abilities still
+	// ask this rather than naming it, so bringing another one back is one line here.
+	public bool InSpecialMovement => IsDashing;
 
 	[Property] public MovementState state;
 	public enum MovementState
@@ -122,15 +113,19 @@ public sealed class RBPlayerMovement : Component
 		rb = GameObject.GetComponent<Rigidbody>();
 		rb.MassOverride = 10f;
 
+		// The root must never rotate: facing lives on Orientation and the head, and the body is turned by hand in
+		// OnUpdate. Locked here rather than trusted to the inspector — a player built without these ticks gets
+		// spun by any off-centre hit (an enemy's punch lands with ApplyImpulseAt), and a spun root tips the collider
+		// off the floor, swings the camera and sends every input off at an angle.
+		rb.Locking = new PhysicsLock { Pitch = true, Yaw = true, Roll = true };
+		rb.AngularVelocity = Vector3.Zero;
+
 		healthComponent = GameObject.GetComponent<PlayerHealth>();
 		slidingComponent = GameObject.GetComponent<Sliding>();
-		grappleComponent = GameObject.GetComponent<GrappleGun>();
 		Body ??= slidingComponent?.PlayerObj;
-		wallRunComponent = GameObject.GetComponent<WallRunning>();
-		wallClimbComponent = GameObject.GetComponent<WallClimb>();
-		railGrindComponent = GameObject.GetComponent<RailGrinding>();
-		groundPoundComponent = GameObject.GetComponent<GroundPound>();
-		strikeComponent = GameObject.GetComponent<GrappleStrike>();
+		lockOnComponent = GameObject.GetComponent<LockOn>();
+		dashComponent = GameObject.GetComponent<DashAbility>();
+		combatComponent = GameObject.GetComponent<PlayerCombat>();
 	}
 
 	// Lets another system (e.g. wall jump) consume a pending jump press so the same
@@ -144,7 +139,9 @@ public sealed class RBPlayerMovement : Component
 	// place — velocity zeroed every physics tick, buffered jumps discarded — so players
 	// can't move before the round starts.
 	private float frozenUntil;
-	public bool IsFrozen => Time.Now < frozenUntil;
+	// the pause menu (and the knockout) stop the scene's clock outright — nothing may act then either, or a
+	// click on a menu button lands as a jab the moment the game resumes
+	public bool IsFrozen => Time.Now < frozenUntil || Scene.GetSystem<HitStop>() is { IsPaused: true };
 
 	// True while this player may not ACT at all — frozen (round countdown, hooked by a
 	// grapple strike) or dead waiting to respawn. Weapons and abilities check this before
@@ -192,6 +189,27 @@ public sealed class RBPlayerMovement : Component
 		momentumTimer = MathF.Max( momentumTimer, duration );
 	}
 
+	// Sends the player flying at exactly this velocity, whatever they were doing, and hands them over to it for
+	// knockbackTime. Used instead of a physics impulse, which the next tick of ground braking would simply undo.
+	public void Knockback( Vector3 velocity )
+	{
+		combatComponent?.CancelLunge();
+
+		// the slope stick would pin a kick on a ramp to the floor
+		slopeExitTimer = slopeExitTime;
+		knockbackTimer = knockbackTime;
+		rb.Velocity = velocity;
+	}
+
+	// Lifts the player with an exact upward speed — a hop, not a full jump — and holds off the extra fall weight
+	// for floatTime so it hangs for a moment instead of being slammed straight back down.
+	public void Hop( float upSpeed, float floatTime )
+	{
+		slopeExitTimer = slopeExitTime;
+		floatTimer = MathF.Max( floatTimer, floatTime );
+		rb.Velocity = rb.Velocity.WithZ( MathF.Max( rb.Velocity.z, upSpeed ) );
+	}
+
 	protected override void OnUpdate()
 	{
 		// Facing: the physics root never rotates (rotation is locked) and aim lives on the
@@ -209,8 +227,7 @@ public sealed class RBPlayerMovement : Component
 
 		// Edge-triggered input (Pressed/Released) is only reliable on the render frame,
 		// so read it here and latch it for the physics step to consume.
-		// While grappling, space means "reel in" (GrappleGun owns it) — never jump.
-		if ( Input.Pressed( "Jump" ) && !IsGrappling && !IsGrindingNow )
+		if ( Input.Pressed( "Jump" ) )
 			jumpBufferTimer = jumpBufferTime;
 	}
 
@@ -226,11 +243,13 @@ public sealed class RBPlayerMovement : Component
 		{
 			rb.Velocity = Vector3.Zero;
 			jumpBufferTimer = 0f;
+			knockbackTimer = 0f;
+			floatTimer = 0f;
 			return;
 		}
 
 		// All physics runs on the fixed clock so movement is framerate-independent and
-		// stays in sync with Sliding / WallRunning, which also drive physics here.
+		// stays in sync with Sliding, which also drives physics here.
 		isGrounded = IsGrounded();
 		onSlope = OnSlope();
 
@@ -241,6 +260,10 @@ public sealed class RBPlayerMovement : Component
 		wasGroundedLast = isGrounded;
 		if ( momentumTimer > 0f )
 			momentumTimer -= Time.Delta;
+		if ( knockbackTimer > 0f )
+			knockbackTimer -= Time.Delta;
+		if ( floatTimer > 0f )
+			floatTimer -= Time.Delta;
 
 		// Count down the post-jump grace window before slope stick re-engages.
 		if ( slopeExitTimer > 0f )
@@ -252,17 +275,15 @@ public sealed class RBPlayerMovement : Component
 		Move();
 
 		bool slidingNow = slidingComponent is not null && slidingComponent.sliding;
-		// Cap only on the ground, only while not sliding or grappling, and only AFTER the
-		// landing window expires — so air momentum, grapple reels and freshly-landed speed
-		// survive long enough to carry.
-		if ( !slidingNow && !IsGrappling && !IsGrindingNow && isGrounded && momentumTimer <= 0f ) SpeedControl();
+		// Cap only on the ground, only while not sliding, and only AFTER the landing window
+		// expires — so air momentum and freshly-landed speed survive long enough to carry.
+		if ( !slidingNow && !IsDashing && !IsLunging && !IsKnockedBack && isGrounded && momentumTimer <= 0f ) SpeedControl();
 
-		// Consume a buffered jump once we're actually grounded. Suppressed while grappling
-		// (space = reel) — covers a press buffered just before the hook fired, too.
+		// Consume a buffered jump once we're actually grounded.
 		if ( jumpBufferTimer > 0f )
 		{
 			jumpBufferTimer -= Time.Delta;
-			if ( isGrounded && !IsGrappling )
+			if ( isGrounded )
 			{
 				Jump();
 				jumpBufferTimer = 0f;
@@ -275,10 +296,10 @@ public sealed class RBPlayerMovement : Component
 
 		// Absolute hard cap — runs every tick regardless of state, so nothing can ever exceed it.
 		Vector3 horizVel = rb.Velocity.WithZ( 0 );
-		if ( horizVel.Length > absoluteMaxSpeed )
+		if ( horizVel.Length > absoluteMaxSpeed && !IsDashing )
 			rb.Velocity = (horizVel.Normal * absoluteMaxSpeed).WithZ( rb.Velocity.z );
 
-		if ( isGrounded && onSlope && !exitingSlope && !IsGrindingNow )
+		if ( isGrounded && onSlope && !exitingSlope )
 		{
 			// Always press into the slope so we stay glued to the surface.
 			rb.ApplyForce( Vector3.Down * rb.Mass * slopeStickForce );
@@ -288,11 +309,10 @@ public sealed class RBPlayerMovement : Component
 			if ( !slidingNow )
 				rb.ApplyForce( -Scene.PhysicsWorld.Gravity * rb.Mass );
 		}
-		else if ( !isGrounded && !IsWallRunningNow && !IsWallClimbingNow && !GrappleAttached && !IsStrikeReeling && !IsGrindingNow && !IsGroundPounding )
+		else if ( !isGrounded && !IsDashing && floatTimer <= 0f )
 		{
-			// Extra fall weight for snappy jumps — but NOT while wall running (it would
-			// fight wallRunGravityScale's gentle slide), wall climbing (it drives velocity
-			// up), or grapple-reeling (it would sag the pull).
+			// Extra fall weight for snappy jumps — but NOT mid-dash, which owns its own
+			// velocity and would sag under the extra pull, nor while a hop is meant to hang.
 			rb.ApplyForce( Vector3.Down * rb.Mass * extraDownForce );
 		}
 	}
@@ -307,25 +327,33 @@ public sealed class RBPlayerMovement : Component
 
 	private void Move()
 	{
+		// Knocked back: the hit owns you. No steering and no ground braking, just a gentle drag.
+		if ( IsKnockedBack )
+		{
+			Vector3 flatVel = Vector3.Lerp( rb.Velocity.WithZ( 0 ), Vector3.Zero, Time.Delta * knockbackDrag );
+			rb.Velocity = flatVel.WithZ( rb.Velocity.z );
+			return;
+		}
+
 		// Let sliding handle its own velocity
 		if ( slidingComponent is not null && slidingComponent.sliding ) return;
 
-		// Wall running, wall climbing, an attached grapple, and the grapple-strike reel each
-		// fully own velocity AND steering — applying input here too would fight them.
-		if ( IsWallRunningNow || IsWallClimbingNow || GrappleAttached || IsStrikeReeling || IsGrindingNow || IsGroundPounding ) return;
+		// The dash fully owns velocity AND steering — applying input here too would fight it. So does an attack lunge.
+		if ( IsDashing || IsLunging ) return;
 
 		// Get inputs and direction
 		Vector3 input = Input.AnalogMove;
-		moveDirection = Orientation.LocalRotation.Forward * input.x + Orientation.LocalRotation.Right * -input.y;
+		// Locked on, input is read around the target instead of down the camera: forward closes, sideways circles.
+		if ( lockOnComponent is null || !lockOnComponent.TryGetMoveDirection( WorldPosition, input, rb.Velocity.WithZ( 0 ).Length, out moveDirection ) )
+			moveDirection = Orientation.WorldRotation.Forward * input.x + Orientation.WorldRotation.Right * -input.y;
 
 		Vector3 currentHorizVel = new Vector3( rb.Velocity.x, rb.Velocity.y, 0 );
 		bool hasInput = moveDirection.Length > 0.01f;
 		bool slopeMove = onSlope && isGrounded && !exitingSlope;
 
-		// Behave like the air (no ground accel/friction) when carrying landing momentum OR
-		// while grappling — so the grapple reels you across the ground in a slide instead of
-		// being braked by friction.
-		bool keepMomentum = (momentumTimer > 0f && currentHorizVel.Length > maxSpeed) || IsGrappling;
+		// Behave like the air (no ground accel/friction) while carrying landing momentum, so a
+		// fast touchdown slides on instead of being braked by ground friction.
+		bool keepMomentum = momentumTimer > 0f && currentHorizVel.Length > maxSpeed;
 
 		// Ground-only targets: every airborne path below goes through AirAccelerate, which
 		// derives its own target from maxSpeed * airMultiplier.

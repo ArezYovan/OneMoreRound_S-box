@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 
 /// <summary>
@@ -13,6 +14,12 @@ using System.Linq;
 /// that lag is most of BreakDistance and the thing falls out of your hands for no reason you
 /// can see. Orientation is driven separately, and deliberately not by physics: a prop that
 /// tumbles as you turn is impossible to aim, and aiming is the entire point of holding it.
+///
+/// Small things go in your hand instead, when the body has one. The prop travels from where it
+/// lay into the palm over the grab animation, rides the hand bone while you hold it, and leaves
+/// partway through the throw animation rather than the instant you press. It's placed with its
+/// <see cref="Grip"/> over your palm, so props of any size sit right without a hold of their own.
+/// Anything too big for a fist — a barstool, a staggered man — floats the old way.
 /// </summary>
 public sealed class PlayerGrab : Component
 {
@@ -65,13 +72,49 @@ public sealed class PlayerGrab : Component
 
 	[Property, Group( "Throw" )] public float ThrowLift { get; set; } = 0.12f;
 
+	[Property, Group( "Throw" ), Description( "Multiplies the damage whatever you throw does. Set by drinks (Throw Damage); 1 is standing." )]
+	public float ThrowDamageScale { get; set; } = 1f;
+
+	[Property, Group( "Throw" ), Description( "How many more men a throw flies on to after it hits one. Set by drinks (Ricochet); 0 is standing, and tick it up here to try it without buying it." )]
+	public int RicochetBounces { get; set; } = 0;
+
 	[Property, Group( "Throw" ), Description( "How much of your own speed the throw carries. 1 is what physics would do; at a sprint that's most of a second throw's worth of speed on top, which mostly reads as the prop being hard to aim. Half keeps the sense that running throws hit harder without the forward one going through the wall." )]
 	public float InheritThrowVelocity { get; set; } = 0.5f;
 
 	[Property, Group( "Throw" ), Description( "Spin (deg/s) put on the prop as it leaves, purely so a thrown barstool tumbles instead of gliding. Doesn't affect damage — ThrownObject scores off closing speed along the contact normal." )]
 	public float ThrowSpin { get; set; } = 0f;
 
+	[Property, Group( "Hand" ), Description( "The body whose animgraph plays the grab, hold and throw, and whose hand the prop rides in. Found on the player automatically if left empty." )]
+	public SkinnedModelRenderer Body { get; set; }
+
+	[Property, Group( "Hand" ), Description( "The bone the prop rides on. On a Rigify rig the right hand is DEF_hand_R. If the body hasn't got this bone, everything is carried the old floating way — so a scene without the new rig still plays." )]
+	public string HandBone { get; set; } = "DEF_hand_R";
+
+	[Property, Group( "Hand" ), Description( "Where your palm is, measured from the hand bone along its own axes. A bone sits at the wrist joint, so at zero every prop is held by your wrist. Tick Show Palm, select the player and nudge this until the marker sits in the middle of the palm." )]
+	public Vector3 PalmOffset { get; set; }
+
+	[Property, Group( "Hand" ), Description( "Turns the palm marker. Get its blue axis pointing out of the top of the fist — where a bottle's neck would stick out — and every prop modelled standing upright sits upright in your hand. A prop that needs something different gets a Grip." )]
+	public Angles PalmAngles { get; set; }
+
+	[Property, Group( "Hand" ), Description( "Anything bigger than this across is carried the old way, floating in front of you, instead of in your hand. A barstool doesn't fit in a fist, and a staggered man certainly doesn't. 0 puts everything in your hand." )]
+	public float HandHoldMaxSize { get; set; } = 40f;
+
+	[Property, Group( "Hand" ), Description( "How long a prop takes to travel from where it lay into your hand. Match it to the moment the grab animation closes its fingers." )]
+	public float GrabTime { get; set; } = 0.25f;
+
+	[Property, Group( "Hand" ), Description( "How far into the throw animation the prop actually leaves your hand. Match it to the frame your arm is furthest forward — too early and it flies out of a hand still drawn back." )]
+	public float ThrowReleaseTime { get; set; } = 0.2f;
+
+	[Property, Group( "Hand" ), Description( "How far in front of your eyes a prop must be when it leaves your hand, so it can't catch on your own body on the way out. A hand closer than this has the prop nudged forward along your aim, with the prop's own size added on top." )]
+	public float ReleaseClearance { get; set; } = 40f;
+
+	[Property, Group( "Hand" ), Description( "The animgraph bool. True plays the grab and settles into the hold; false plays the throw." )]
+	public string HoldParameter { get; set; } = "IsHolding";
+
 	[Property, Group( "Debug" )] public bool LogGrabs { get; set; } = true;
+
+	[Property, Group( "Debug" ), Description( "Draws your palm and which way it faces, with the player selected. For tuning Palm Offset and Palm Angles — turn it off again after." )]
+	public bool ShowPalm { get; set; }
 
 	public bool IsHolding => held.IsValid();
 	public Rigidbody Held => held;
@@ -88,6 +131,22 @@ public sealed class PlayerGrab : Component
 	bool usePressed;
 	TimeSince timeSinceThrow = 999f;
 
+	// In-hand carrying. None means nothing is held, or it's floating the old way.
+	enum HandState { None, Grabbing, Holding, Throwing }
+
+	HandState hand;
+	TimeSince timeInHand;
+	// where the prop lay when you took it, so it can travel into the hand instead of teleporting there
+	Transform pickedUpFrom;
+	// the point and angle on the prop that the palm closes on, in the prop's own space
+	Transform grip;
+	float heldRadius;
+	// switched off while it rides in your hand, and exactly these switched back on after
+	readonly List<Collider> handColliders = new();
+	SkinnedModelRenderer bodyFound;
+
+	bool InHand => hand != HandState.None;
+
 	protected override void OnStart()
 	{
 		// Resolved rather than trusted to the editor reference: this used to point at a
@@ -100,6 +159,13 @@ public sealed class PlayerGrab : Component
 
 	protected override void OnUpdate()
 	{
+		// the pose follows the hands: up for the grab and the hold, down — which plays the throw — the moment a
+		// throw starts or the prop leaves you any other way. Set before the gates below, so a knockout drops it too
+		var body = BodyRenderer;
+
+		if ( body.IsValid() && !string.IsNullOrEmpty( HoldParameter ) )
+			body.Set( HoldParameter, IsHolding && hand != HandState.Throwing );
+
 		if ( PlayerHealth.IsValid() && PlayerHealth.IsKnockedOut )
 			return;
 
@@ -156,13 +222,31 @@ public sealed class PlayerGrab : Component
 	void UpdateHold()
 	{
 		if ( !IsHolding )
+		{
+			// destroyed in your hand: nothing left to let go of, just forget it was there
+			hand = HandState.None;
+			handColliders.Clear();
 			return;
+		}
 
 		// died in your hands: the rigidbody gets switched off for the ragdoll, so there's nothing
 		// left to carry. Grab the corpse again if you still want it
 		if ( !held.Enabled )
 		{
 			Release( "it went limp" );
+			return;
+		}
+
+		// in the hand, OnPreRender places it on the bone every frame. All that's left here is the clock: finishing
+		// the reach, and letting go at the right moment of the throw
+		if ( InHand )
+		{
+			if ( hand == HandState.Grabbing && timeInHand >= GrabTime )
+				hand = HandState.Holding;
+
+			if ( hand == HandState.Throwing && timeInHand >= ThrowReleaseTime )
+				Launch();
+
 			return;
 		}
 
@@ -200,6 +284,56 @@ public sealed class PlayerGrab : Component
 
 	void TryGrab()
 	{
+		var target = FindGrabTarget( out var body, out var stagger, out string refusal );
+
+		if ( target is null )
+		{
+			Report( refusal );
+			return;
+		}
+
+		Attach( body, stagger );
+	}
+
+	/// <summary>
+	/// What a press of Use would pick up right now, or null — for the HUD's prompt. The same search the grab itself
+	/// runs, so the prompt can never offer something the press won't take. Refreshed a few times a second rather than
+	/// every frame: the cone half of the search looks at every loose thing in the room.
+	/// </summary>
+	public GameObject GrabTarget
+	{
+		get
+		{
+			if ( timeSinceTargetChecked >= TargetCheckInterval )
+			{
+				timeSinceTargetChecked = 0;
+				grabTarget = CanReach && !IsHolding ? FindGrabTarget( out _, out _, out _ ) : null;
+			}
+
+			return grabTarget.IsValid() ? grabTarget : null;
+		}
+	}
+
+	/// <summary>True while something is held and a press of Use would throw it — not once the throw is already on its way.</summary>
+	public bool CanThrow => IsHolding && hand != HandState.Throwing && CanReach;
+
+	// whether a press would be acted on at all: not down, and not held by the run (the countdown, the bar)
+	bool CanReach => !( PlayerHealth.IsValid() && PlayerHealth.IsKnockedOut )
+		&& !( Movement.IsValid() && Movement.ActionsBlocked );
+
+	GameObject grabTarget;
+	TimeSince timeSinceTargetChecked;
+	const float TargetCheckInterval = 0.1f;
+
+	/// <summary>
+	/// The thing under the crosshair if it can be lifted; if the crosshair is on nothing at all, the best thing in the
+	/// aim cone. Null with the reason in <paramref name="refusal"/> otherwise.
+	/// </summary>
+	GameObject FindGrabTarget( out Rigidbody body, out Stagger stagger, out string refusal )
+	{
+		body = null;
+		stagger = null;
+
 		var origin = EyePosition;
 		var forward = EyeForward;
 
@@ -217,17 +351,11 @@ public sealed class PlayerGrab : Component
 
 		if ( !target.IsValid() )
 		{
-			Report( "grabbed at nothing" );
-			return;
+			refusal = "grabbed at nothing";
+			return null;
 		}
 
-		if ( !CanGrab( target, out var body, out var stagger, out string refusal ) )
-		{
-			Report( refusal );
-			return;
-		}
-
-		Attach( body, stagger );
+		return CanGrab( target, out body, out stagger, out refusal ) ? target : null;
 	}
 
 	/// <summary>
@@ -323,6 +451,14 @@ public sealed class PlayerGrab : Component
 			}
 		}
 
+		// someone else is carrying it: its physics is off while it rides in their hand. Knock it out of his
+		// hand and it's fair game — until then, hitting him is the answer, not reaching for his bottle
+		if ( !body.MotionEnabled )
+		{
+			refusal = $"{target.Name} is in someone's hand";
+			return false;
+		}
+
 		float mass = body.PhysicsBody?.Mass ?? 0f;
 
 		if ( MaxMass > 0f && mass > MaxMass )
@@ -359,12 +495,32 @@ public sealed class PlayerGrab : Component
 		if ( heldStagger.IsValid() )
 			heldStagger.IsHeld = true;
 
-		Report( $"picked up {body.GameObject.Name} ({( body.PhysicsBody?.Mass ?? 0f ):0} mass)" );
+		bool intoHand = TakeIntoHand( body );
+
+		Report( $"picked up {body.GameObject.Name} ({( body.PhysicsBody?.Mass ?? 0f ):0} mass){( intoHand ? " — in hand" : "" )}" );
 	}
 
 	// ---------- Throwing & letting go ----------
 
 	void Throw()
+	{
+		// in the hand a throw is an animation first: the pose drops, the arm comes through, and the prop only leaves
+		// at ThrowReleaseTime. It's aimed at that moment rather than now, so you can still line it up
+		if ( InHand )
+		{
+			if ( hand != HandState.Throwing )
+			{
+				hand = HandState.Throwing;
+				timeInHand = 0;
+			}
+
+			return;
+		}
+
+		Launch();
+	}
+
+	void Launch()
 	{
 		var body = held;
 		var direction = ( EyeForward + Vector3.Up * ThrowLift ).Normal;
@@ -374,6 +530,8 @@ public sealed class PlayerGrab : Component
 		// armed before it's launched, so a throw at point blank still counts
 		var thrown = body.GameObject.Components.GetOrCreate<ThrownObject>();
 		thrown.Arm( GameObject );
+		thrown.DamageScale = ThrowDamageScale;
+		thrown.Bounces = RicochetBounces;
 
 		// Your own speed comes along, so throwing while running forward really does hit harder
 		// and throwing backwards off a sprint mostly just drops the thing.
@@ -389,9 +547,16 @@ public sealed class PlayerGrab : Component
 
 	void Release( string why )
 	{
+		var body = held;
 		var name = held.IsValid() ? held.GameObject.Name : "nothing";
+		bool wasInHand = InHand;
 
 		Detach();
+
+		// out of a hand it has no speed of its own — give it yours, so a drop at a run falls where you'd expect
+		// instead of stopping dead in mid air
+		if ( wasInHand && body.IsValid() )
+			body.Velocity = PlayerVelocity;
 
 		Report( $"{why} ({name})" );
 	}
@@ -404,8 +569,15 @@ public sealed class PlayerGrab : Component
 	void Detach()
 	{
 		if ( held.IsValid() )
+		{
 			held.EnhancedCcd = heldPreviousCcd;
 
+			if ( InHand )
+				LetGoOfHand( held );
+		}
+
+		hand = HandState.None;
+		handColliders.Clear();
 		held = null;
 		holdOffset = Rotation.Identity;
 
@@ -419,6 +591,190 @@ public sealed class PlayerGrab : Component
 	{
 		if ( IsHolding )
 			Release( "put down" );
+	}
+
+	// ---------- In the hand ----------
+
+	/// <summary>
+	/// Puts a prop in your hand if it's small enough and the body has a hand to put it in. Physics and collision go
+	/// off for the carry, the same as when an enemy carries one, so it can't shove you about or catch on the crowd.
+	/// Returns false, and changes nothing, for anything that should float the old way instead.
+	/// </summary>
+	bool TakeIntoHand( Rigidbody body )
+	{
+		if ( !TryGetPalm( out _ ) )
+			return false;
+
+		// people never go in a fist, whatever size they are
+		if ( body.GameObject.Components.Get<Enemy>( FindMode.EnabledInSelfAndDescendants ).IsValid() )
+			return false;
+
+		var bounds = body.GameObject.GetBounds();
+		float size = MathF.Max( bounds.Size.x, MathF.Max( bounds.Size.y, bounds.Size.z ) );
+
+		if ( HandHoldMaxSize > 0f && size > HandHoldMaxSize )
+			return false;
+
+		hand = HandState.Grabbing;
+		timeInHand = 0;
+		pickedUpFrom = body.WorldTransform;
+		grip = GripFor( body, bounds );
+		heldRadius = size * 0.5f;
+
+		body.Velocity = Vector3.Zero;
+		body.AngularVelocity = Vector3.Zero;
+		body.MotionEnabled = false;
+
+		handColliders.Clear();
+		handColliders.AddRange( body.GameObject.Components.GetAll<Collider>( FindMode.EnabledInSelfAndDescendants ) );
+
+		foreach ( var collider in handColliders )
+			collider.Enabled = false;
+
+		return true;
+	}
+
+	/// <summary>Physics and collision back on, clear of your own body. Every way out of the hand comes through here.</summary>
+	void LetGoOfHand( Rigidbody body )
+	{
+		// moved BEFORE collision comes back, so it never exists for a tick inside you
+		body.WorldPosition = ClearOfBody( body.WorldPosition );
+
+		foreach ( var collider in handColliders )
+		{
+			if ( collider.IsValid() )
+				collider.Enabled = true;
+		}
+
+		handColliders.Clear();
+		body.MotionEnabled = true;
+	}
+
+	/// <summary>
+	/// Placed as the frame renders, once the animation has posed the hand for this frame — any earlier and the prop
+	/// trails a frame behind the hand, which shows on a fast throw.
+	/// </summary>
+	protected override void OnPreRender()
+	{
+		if ( !InHand || !held.IsValid() || !TryGetPalm( out var palm ) )
+			return;
+
+		var target = HandTarget( palm );
+
+		// travels from where it lay into the hand over the reach, eased at both ends, so it meets the hand rather
+		// than teleporting into it
+		if ( hand == HandState.Grabbing && GrabTime > 0f )
+		{
+			float t = MathX.Clamp( (float)timeInHand / GrabTime, 0f, 1f );
+			t = t * t * ( 3f - 2f * t );
+
+			held.WorldPosition = Vector3.Lerp( pickedUpFrom.Position, target.Position, t );
+			held.WorldRotation = Rotation.Slerp( pickedUpFrom.Rotation, target.Rotation, t );
+			return;
+		}
+
+		held.WorldPosition = target.Position;
+		held.WorldRotation = target.Rotation;
+	}
+
+	/// <summary>Where the prop sits when its grip is in your palm: the grip's frame laid exactly over the palm's.</summary>
+	Transform HandTarget( Transform palm )
+	{
+		var rotation = palm.Rotation * grip.Rotation.Inverse;
+		var position = palm.Position - rotation * ( grip.Position * held.WorldScale );
+
+		return new Transform( position, rotation );
+	}
+
+	/// <summary>Your palm this frame, as the animation has posed it. False without a body, or without the bone.</summary>
+	bool TryGetPalm( out Transform palm )
+	{
+		palm = default;
+
+		var body = BodyRenderer;
+
+		if ( !body.IsValid() || string.IsNullOrEmpty( HandBone ) || !body.TryGetBoneTransform( HandBone, out var bone ) )
+			return false;
+
+		palm = new Transform( bone.Position + bone.Rotation * PalmOffset, bone.Rotation * PalmAngles.ToRotation() );
+		return true;
+	}
+
+	/// <summary>
+	/// Where on the prop the palm closes, in the prop's own space. A Grip on it says exactly; without one it's held by
+	/// the middle, standing the way it was modelled — which is right for anything modelled upright.
+	/// </summary>
+	static Transform GripFor( Rigidbody body, BBox bounds )
+	{
+		var authored = body.GameObject.Components.Get<Grip>( FindMode.EnabledInSelfAndDescendants );
+
+		if ( authored.IsValid() )
+		{
+			return new Transform(
+				body.WorldTransform.PointToLocal( authored.WorldPosition ),
+				body.WorldRotation.Inverse * authored.WorldRotation );
+		}
+
+		return new Transform( body.WorldTransform.PointToLocal( bounds.Center ), Rotation.Identity );
+	}
+
+	/// <summary>
+	/// Nudges a position forward along your aim until it's clear of your own body, so a prop leaving your hand can't
+	/// catch on you and be knocked off line. Anything already far enough out is left exactly where it is.
+	/// </summary>
+	Vector3 ClearOfBody( Vector3 position )
+	{
+		var forward = EyeForward.WithZ( 0f );
+
+		if ( forward.IsNearlyZero() )
+			return position;
+
+		forward = forward.Normal;
+
+		float needed = ReleaseClearance + heldRadius;
+		float along = Vector3.Dot( position - EyePosition, forward );
+
+		return along < needed ? position + forward * ( needed - along ) : position;
+	}
+
+	/// <summary>
+	/// The body, found lazily and cached privately rather than written back to Body — the editor gizmo asks for it
+	/// before OnStart has ever run, and writing a property from there would dirty the scene.
+	/// </summary>
+	SkinnedModelRenderer BodyRenderer
+	{
+		get
+		{
+			if ( Body.IsValid() )
+				return Body;
+
+			if ( !bodyFound.IsValid() )
+				bodyFound = Components.Get<SkinnedModelRenderer>( FindMode.EverythingInSelfAndDescendants );
+
+			return bodyFound;
+		}
+	}
+
+	protected override void DrawGizmos()
+	{
+		if ( !ShowPalm || !Gizmo.IsSelected || !TryGetPalm( out var palm ) )
+			return;
+
+		// gizmos draw in this object's space; the palm is in the world's
+		var at = WorldTransform.PointToLocal( palm.Position );
+		var turn = WorldRotation.Inverse * palm.Rotation;
+
+		Gizmo.Draw.Color = Color.Orange;
+		Gizmo.Draw.LineSphere( at, 3f, 8 );
+
+		Gizmo.Draw.Color = Color.Red;
+		Gizmo.Draw.Line( at, at + turn.Forward * 10f );
+
+		Gizmo.Draw.Color = Color.Green;
+		Gizmo.Draw.Line( at, at + turn.Left * 10f );
+
+		Gizmo.Draw.Color = Color.Blue;
+		Gizmo.Draw.Line( at, at + turn.Up * 10f );
 	}
 
 	// ---------- Helpers ----------

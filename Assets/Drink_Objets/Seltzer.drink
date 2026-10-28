@@ -1,0 +1,26 @@
+{
+  "Name": "Seltzer",
+  "Flavour": "Just bubbles",
+  "Upsides": [
+    "Your punches and kicks reach 8% further"
+  ],
+  "Downsides": [],
+  "Effects": [
+    {
+      "Stat": "Reach",
+      "Percent": 8,
+      "Flat": 0
+    }
+  ],
+  "Rarity": "Blue",
+  "Weight": 1,
+  "OnePerNight": false,
+  "Price": 12,
+  "Tint": "1,1,1,1",
+  "Model": {
+    "Id": "bc05e970-bb01-4c30-97b7-b97b658e4d2a",
+    "Path": "models/bottle_models/can_blue.vmdl"
+  },
+  "__references": [],
+  "__version": 0
+}

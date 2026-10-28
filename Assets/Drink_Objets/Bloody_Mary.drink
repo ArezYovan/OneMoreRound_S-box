@@ -1,0 +1,33 @@
+{
+  "Name": "Bloody Mary",
+  "Flavour": "Vodka and tomato",
+  "Upsides": [
+    "$3 for every man who goes down in a fight"
+  ],
+  "Downsides": [
+    "-10 max health"
+  ],
+  "Effects": [
+    {
+      "Stat": "KillBounty",
+      "Percent": 0,
+      "Flat": 3
+    },
+    {
+      "Stat": "MaxHealth",
+      "Percent": 0,
+      "Flat": -10
+    }
+  ],
+  "Rarity": "Purple",
+  "Weight": 1,
+  "OnePerNight": false,
+  "Price": 30,
+  "Tint": "1,1,1,1",
+  "Model": {
+    "Id": "8462014d-0dda-4c27-ba04-76a4e6a93639",
+    "Path": "models/bottle_models/glass_cup/glass_red.vmdl"
+  },
+  "__references": [],
+  "__version": 0
+}

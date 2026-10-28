@@ -1,0 +1,1231 @@
+<!-- kv3 encoding:text:version{e21c7f3c-8a33-41c5-9977-a76d3a32aa0d} format:modeldoc30:version{8c2d7a91-9c42-4bf0-883a-5a3b1762d4f1} -->
+{
+	rootNode = 
+	{
+		_class = "RootNode"
+		children = 
+		[
+			{
+				_class = "MaterialGroupList"
+				children = 
+				[
+					{
+						_class = "DefaultMaterialGroup"
+						remaps = [  ]
+						use_global_default = true
+						global_default_material = "materials/default.vmat"
+					},
+				]
+			},
+			{
+				_class = "RenderMeshList"
+				children = 
+				[
+					{
+						_class = "RenderMeshFile"
+						filename = "models/fatenemy.fbx"
+						import_translation = [ 0.0, 0.0, 0.0 ]
+						import_rotation = [ 0.0, 0.0, 0.0 ]
+						import_scale = 1.0
+						align_origin_x_type = "None"
+						align_origin_y_type = "None"
+						align_origin_z_type = "None"
+						parent_bone = ""
+						import_filter = 
+						{
+							exclude_by_default = true
+							exception_list = 
+							[
+								"nigga",
+							]
+						}
+					},
+				]
+			},
+			{
+				_class = "AnimationList"
+				children = 
+				[
+					{
+						_class = "AnimFile"
+						name = "WalkN"
+						children = 
+						[
+							{
+								_class = "ExtractMotion"
+								extract_tx = true
+								extract_ty = true
+								extract_tz = false
+								extract_rz = false
+								linear = false
+								quadratic = false
+								root_bone_name = "root"
+								motion_type = "Uniform"
+							},
+							{
+								_class = "AnimEvent"
+								event_class = "AE_FOOTSTEP"
+								event_frame = 11
+								event_keys = 
+								{
+									Attachment = "foot_L"
+									Foot = "0"
+									Volume = 1.0
+								}
+							},
+							{
+								_class = "AnimEvent"
+								event_class = "AE_FOOTSTEP"
+								event_frame = 27
+								event_keys = 
+								{
+									Attachment = "foot_R"
+									Foot = "1"
+									Volume = 1.0
+								}
+							},
+							{
+								_class = "AnimStartLoop"
+								start_loop_frame = 16
+							},
+						]
+						activity_name = ""
+						activity_weight = 1
+						weight_list_name = ""
+						fade_in_time = 0.2
+						fade_out_time = 0.2
+						looping = true
+						delta = false
+						worldSpace = false
+						hidden = false
+						anim_markup_ordered = true
+						disable_compression = false
+						disable_interpolation = false
+						enable_scale = false
+						source_filename = "models/FatEnemy.fbx"
+						start_frame = -1
+						end_frame = -1
+						framerate = -1.0
+						take = 17
+						reverse = false
+					},
+					{
+						_class = "AnimFile"
+						name = "WalkS"
+						children = 
+						[
+							{
+								_class = "ExtractMotion"
+								extract_tx = true
+								extract_ty = true
+								extract_tz = false
+								extract_rz = false
+								linear = false
+								quadratic = false
+								root_bone_name = "root"
+								motion_type = "Uniform"
+							},
+							{
+								_class = "AnimEvent"
+								event_class = "AE_FOOTSTEP"
+								event_frame = 8
+								event_keys = 
+								{
+									Attachment = "foot_L"
+									Foot = "0"
+									Volume = 1.0
+								}
+							},
+							{
+								_class = "AnimEvent"
+								event_class = "AE_FOOTSTEP"
+								event_frame = 24
+								event_keys = 
+								{
+									Attachment = "foot_R"
+									Foot = "1"
+									Volume = 1.0
+								}
+							},
+						]
+						activity_name = ""
+						activity_weight = 1
+						weight_list_name = ""
+						fade_in_time = 0.2
+						fade_out_time = 0.2
+						looping = true
+						delta = false
+						worldSpace = false
+						hidden = false
+						anim_markup_ordered = true
+						disable_compression = false
+						disable_interpolation = false
+						enable_scale = false
+						source_filename = "models/FatEnemy.fbx"
+						start_frame = -1
+						end_frame = -1
+						framerate = -1.0
+						take = 18
+						reverse = false
+					},
+					{
+						_class = "AnimFile"
+						name = "WalkE"
+						children = 
+						[
+							{
+								_class = "ExtractMotion"
+								extract_tx = true
+								extract_ty = true
+								extract_tz = false
+								extract_rz = false
+								linear = false
+								quadratic = false
+								root_bone_name = "root"
+								motion_type = "Uniform"
+							},
+							{
+								_class = "AnimEvent"
+								event_class = "AE_FOOTSTEP"
+								event_frame = 9
+								event_keys = 
+								{
+									Attachment = "foot_L"
+									Foot = "0"
+									Volume = 1.0
+								}
+							},
+							{
+								_class = "AnimEvent"
+								event_class = "AE_FOOTSTEP"
+								event_frame = 25
+								event_keys = 
+								{
+									Attachment = "foot_R"
+									Foot = "1"
+									Volume = 1.0
+								}
+							},
+						]
+						activity_name = ""
+						activity_weight = 1
+						weight_list_name = ""
+						fade_in_time = 0.2
+						fade_out_time = 0.2
+						looping = true
+						delta = false
+						worldSpace = false
+						hidden = false
+						anim_markup_ordered = false
+						disable_compression = false
+						disable_interpolation = false
+						enable_scale = false
+						source_filename = "models/FatEnemy.fbx"
+						start_frame = -1
+						end_frame = -1
+						framerate = -1.0
+						take = 16
+						reverse = false
+					},
+					{
+						_class = "AnimFile"
+						name = "WalkW"
+						children = 
+						[
+							{
+								_class = "ExtractMotion"
+								extract_tx = true
+								extract_ty = true
+								extract_tz = false
+								extract_rz = false
+								linear = false
+								quadratic = false
+								root_bone_name = "root"
+								motion_type = "Uniform"
+							},
+							{
+								_class = "AnimEvent"
+								event_class = "AE_FOOTSTEP"
+								event_frame = 9
+								event_keys = 
+								{
+									Attachment = "foot_L"
+									Foot = "0"
+									Volume = 1.0
+								}
+							},
+							{
+								_class = "AnimEvent"
+								event_class = "AE_FOOTSTEP"
+								event_frame = 25
+								event_keys = 
+								{
+									Attachment = "foot_R"
+									Foot = "1"
+									Volume = 1.0
+								}
+							},
+							{
+								_class = "AnimStartLoop"
+								start_loop_frame = 16
+							},
+						]
+						activity_name = ""
+						activity_weight = 1
+						weight_list_name = ""
+						fade_in_time = 0.2
+						fade_out_time = 0.2
+						looping = true
+						delta = false
+						worldSpace = false
+						hidden = false
+						anim_markup_ordered = true
+						disable_compression = false
+						disable_interpolation = false
+						enable_scale = false
+						source_filename = "models/FatEnemy.fbx"
+						start_frame = -1
+						end_frame = -1
+						framerate = -1.0
+						take = 19
+						reverse = false
+					},
+					{
+						_class = "AnimFile"
+						name = "Idle"
+						activity_name = ""
+						activity_weight = 1
+						weight_list_name = ""
+						fade_in_time = 0.2
+						fade_out_time = 0.2
+						looping = true
+						delta = false
+						worldSpace = false
+						hidden = false
+						anim_markup_ordered = false
+						disable_compression = false
+						disable_interpolation = false
+						enable_scale = false
+						source_filename = "models/FatEnemy.fbx"
+						start_frame = -1
+						end_frame = -1
+						framerate = -1.0
+						take = 9
+						reverse = false
+					},
+					{
+						_class = "AnimFile"
+						name = "Knockback"
+						activity_name = ""
+						activity_weight = 1
+						weight_list_name = ""
+						fade_in_time = 0.2
+						fade_out_time = 0.2
+						looping = false
+						delta = false
+						worldSpace = false
+						hidden = false
+						anim_markup_ordered = false
+						disable_compression = false
+						disable_interpolation = false
+						enable_scale = false
+						source_filename = "models/FatEnemy.fbx"
+						start_frame = -1
+						end_frame = -1
+						framerate = -1.0
+						take = 11
+						reverse = false
+					},
+					{
+						_class = "AnimFile"
+						name = "Stagger"
+						activity_name = ""
+						activity_weight = 1
+						weight_list_name = ""
+						fade_in_time = 0.2
+						fade_out_time = 0.2
+						looping = true
+						delta = false
+						worldSpace = false
+						hidden = false
+						anim_markup_ordered = false
+						disable_compression = false
+						disable_interpolation = false
+						enable_scale = false
+						source_filename = "models/FatEnemy.fbx"
+						start_frame = -1
+						end_frame = -1
+						framerate = -1.0
+						take = 13
+						reverse = false
+					},
+					{
+						_class = "AnimFile"
+						name = "Fight_Idle"
+						activity_name = ""
+						activity_weight = 1
+						weight_list_name = ""
+						fade_in_time = 0.2
+						fade_out_time = 0.2
+						looping = false
+						delta = false
+						worldSpace = false
+						hidden = false
+						anim_markup_ordered = false
+						disable_compression = false
+						disable_interpolation = false
+						enable_scale = false
+						source_filename = "models/FatEnemy.fbx"
+						start_frame = -1
+						end_frame = -1
+						framerate = -1.0
+						take = 2
+						reverse = false
+					},
+					{
+						_class = "AnimFile"
+						name = "Fight_Punch"
+						children = 
+						[
+							{
+								_class = "AnimEvent"
+								name = "HitEvent"
+								event_class = "AE_GENERIC_EVENT"
+								event_frame = 21
+								event_keys = 
+								{
+									TypeName = "hit"
+									Int = 0
+									Float = 0.0
+									Vector = [ 0.0, 0.0, 0.0 ]
+									StringData = ""
+								}
+							},
+						]
+						activity_name = ""
+						activity_weight = 1
+						weight_list_name = ""
+						fade_in_time = 0.2
+						fade_out_time = 0.2
+						looping = false
+						delta = false
+						worldSpace = false
+						hidden = false
+						anim_markup_ordered = false
+						disable_compression = false
+						disable_interpolation = false
+						enable_scale = false
+						source_filename = "models/FatEnemy.fbx"
+						start_frame = -1
+						end_frame = -1
+						framerate = -1.0
+						take = 5
+						reverse = false
+					},
+					{
+						_class = "AnimFile"
+						name = "Grab"
+						activity_name = ""
+						activity_weight = 1
+						weight_list_name = ""
+						fade_in_time = 0.2
+						fade_out_time = 0.2
+						looping = false
+						delta = false
+						worldSpace = false
+						hidden = false
+						anim_markup_ordered = false
+						disable_compression = false
+						disable_interpolation = false
+						enable_scale = false
+						source_filename = "models/FatEnemy.fbx"
+						start_frame = -1
+						end_frame = -1
+						framerate = -1.0
+						take = 6
+						reverse = false
+					},
+					{
+						_class = "AnimFile"
+						name = "Holding"
+						activity_name = ""
+						activity_weight = 1
+						weight_list_name = ""
+						fade_in_time = 0.2
+						fade_out_time = 0.2
+						looping = false
+						delta = false
+						worldSpace = false
+						hidden = false
+						anim_markup_ordered = false
+						disable_compression = false
+						disable_interpolation = false
+						enable_scale = false
+						source_filename = "models/FatEnemy.fbx"
+						start_frame = -1
+						end_frame = -1
+						framerate = -1.0
+						take = 7
+						reverse = false
+					},
+					{
+						_class = "AnimFile"
+						name = "Throw_Enter"
+						activity_name = ""
+						activity_weight = 1
+						weight_list_name = ""
+						fade_in_time = 0.2
+						fade_out_time = 0.2
+						looping = false
+						delta = false
+						worldSpace = false
+						hidden = false
+						anim_markup_ordered = false
+						disable_compression = false
+						disable_interpolation = false
+						enable_scale = false
+						source_filename = "models/FatEnemy.fbx"
+						start_frame = -1
+						end_frame = -1
+						framerate = -1.0
+						take = 14
+						reverse = false
+					},
+					{
+						_class = "AnimFile"
+						name = "Throw_Exit"
+						activity_name = ""
+						activity_weight = 1
+						weight_list_name = ""
+						fade_in_time = 0.2
+						fade_out_time = 0.2
+						looping = false
+						delta = false
+						worldSpace = false
+						hidden = false
+						anim_markup_ordered = false
+						disable_compression = false
+						disable_interpolation = false
+						enable_scale = false
+						source_filename = "models/FatEnemy.fbx"
+						start_frame = -1
+						end_frame = -1
+						framerate = -1.0
+						take = 15
+						reverse = false
+					},
+					{
+						_class = "AnimFile"
+						name = "Jab_React"
+						activity_name = ""
+						activity_weight = 1
+						weight_list_name = ""
+						fade_in_time = 0.2
+						fade_out_time = 0.2
+						looping = false
+						delta = false
+						worldSpace = false
+						hidden = false
+						anim_markup_ordered = false
+						disable_compression = false
+						disable_interpolation = false
+						enable_scale = false
+						source_filename = "models/FatEnemy.fbx"
+						start_frame = -1
+						end_frame = -1
+						framerate = -1.0
+						take = 10
+						reverse = false
+					},
+					{
+						_class = "AnimFile"
+						name = "Hook_React"
+						activity_name = ""
+						activity_weight = 1
+						weight_list_name = ""
+						fade_in_time = 0.2
+						fade_out_time = 0.2
+						looping = false
+						delta = false
+						worldSpace = false
+						hidden = false
+						anim_markup_ordered = false
+						disable_compression = false
+						disable_interpolation = false
+						enable_scale = false
+						source_filename = "models/FatEnemy.fbx"
+						start_frame = -1
+						end_frame = -1
+						framerate = -1.0
+						take = 8
+						reverse = false
+					},
+					{
+						_class = "AnimFile"
+						name = "Parry"
+						activity_name = ""
+						activity_weight = 1
+						weight_list_name = ""
+						fade_in_time = 0.2
+						fade_out_time = 0.2
+						looping = false
+						delta = false
+						worldSpace = false
+						hidden = false
+						anim_markup_ordered = false
+						disable_compression = false
+						disable_interpolation = false
+						enable_scale = false
+						source_filename = "models/FatEnemy.fbx"
+						start_frame = -1
+						end_frame = -1
+						framerate = -1.0
+						take = 12
+						reverse = false
+					},
+					{
+						_class = "AnimFile"
+						name = "FIght_Jab"
+						children = 
+						[
+							{
+								_class = "AnimEvent"
+								name = "HitEvent1"
+								event_class = "AE_GENERIC_EVENT"
+								event_frame = 14
+								event_keys = 
+								{
+									TypeName = "hit"
+									Int = 0
+									Float = 0.0
+									Vector = [ 0.0, 0.0, 0.0 ]
+									StringData = ""
+								}
+							},
+						]
+						activity_name = ""
+						activity_weight = 1
+						weight_list_name = ""
+						fade_in_time = 0.2
+						fade_out_time = 0.2
+						looping = false
+						delta = false
+						worldSpace = false
+						hidden = false
+						anim_markup_ordered = false
+						disable_compression = false
+						disable_interpolation = false
+						enable_scale = false
+						source_filename = "models/FatEnemy.fbx"
+						start_frame = -1
+						end_frame = -1
+						framerate = 50.0
+						take = 3
+						reverse = false
+					},
+					{
+						_class = "AnimFile"
+						name = "Fight_Kick"
+						children = 
+						[
+							{
+								_class = "AnimEvent"
+								name = "HitEvent2"
+								event_class = "AE_GENERIC_EVENT"
+								event_frame = 28
+								event_keys = 
+								{
+									TypeName = "hit"
+									Int = 0
+									Float = 0.0
+									Vector = [ 0.0, 0.0, 0.0 ]
+									StringData = ""
+								}
+							},
+							{
+								_class = "ExtractMotion"
+								extract_tx = true
+								extract_ty = true
+								extract_tz = false
+								extract_rz = false
+								linear = false
+								quadratic = false
+								root_bone_name = "root"
+								motion_type = "Uniform"
+							},
+						]
+						activity_name = ""
+						activity_weight = 1
+						weight_list_name = ""
+						fade_in_time = 0.2
+						fade_out_time = 0.2
+						looping = false
+						delta = false
+						worldSpace = false
+						hidden = false
+						anim_markup_ordered = false
+						disable_compression = false
+						disable_interpolation = false
+						enable_scale = false
+						source_filename = "models/FatEnemy.fbx"
+						start_frame = -1
+						end_frame = -1
+						framerate = -1.0
+						take = 4
+						reverse = false
+					},
+					{
+						_class = "AnimFile"
+						name = "Block"
+						activity_name = ""
+						activity_weight = 1
+						weight_list_name = ""
+						fade_in_time = 0.2
+						fade_out_time = 0.2
+						looping = false
+						delta = false
+						worldSpace = false
+						hidden = false
+						anim_markup_ordered = false
+						disable_compression = false
+						disable_interpolation = false
+						enable_scale = false
+						source_filename = "models/FatEnemy.fbx"
+						start_frame = -1
+						end_frame = -1
+						framerate = -1.0
+						take = 0
+						reverse = false
+					},
+					{
+						_class = "AnimFile"
+						name = "Block_Break"
+						activity_name = ""
+						activity_weight = 1
+						weight_list_name = ""
+						fade_in_time = 0.2
+						fade_out_time = 0.2
+						looping = false
+						delta = false
+						worldSpace = false
+						hidden = false
+						anim_markup_ordered = false
+						disable_compression = false
+						disable_interpolation = false
+						enable_scale = false
+						source_filename = "models/FatEnemy.fbx"
+						start_frame = -1
+						end_frame = -1
+						framerate = -1.0
+						take = 1
+						reverse = false
+					},
+				]
+				default_root_bone_name = ""
+			},
+			{
+				_class = "AttachmentList"
+				children = 
+				[
+					{
+						_class = "Attachment"
+						name = "foot_R"
+						parent_bone = "DEF_foot_R"
+						relative_origin = [ 0.0, 0.0, 0.0 ]
+						relative_angles = [ 0.0, 0.0, 0.0 ]
+						weight = 1.0
+						ignore_rotation = false
+					},
+					{
+						_class = "Attachment"
+						name = "foot_L"
+						parent_bone = "DEF_foot_L"
+						relative_origin = [ 0.0, 0.0, 0.0 ]
+						relative_angles = [ 0.0, 0.0, 0.0 ]
+						weight = 1.0
+						ignore_rotation = false
+					},
+				]
+			},
+			{
+				_class = "PhysicsJointList"
+				children = 
+				[
+					{
+						_class = "PhysicsJointConical"
+						parent_body = "DEF_spine"
+						child_body = "DEF_spine_002"
+						anchor_origin = [ 0.0, 19.750557, -1.211273 ]
+						anchor_angles = [ -16.284006, -90.0, -89.999969 ]
+						collision_enabled = false
+						linear_strength = 0.0
+						angular_strength = 0.0
+						friction = 0.1
+						enable_swing_limit = true
+						swing_limit = 30.0
+						swing_offset_angle = [ 0.0, 0.0, 0.0 ]
+						enable_twist_limit = true
+						min_twist_angle = -15.0
+						max_twist_angle = 15.0
+					},
+					{
+						_class = "PhysicsJointConical"
+						parent_body = "DEF_spine_002"
+						child_body = "DEF_spine_004"
+						anchor_origin = [ 0.000011, 24.626701, -2.858215 ]
+						anchor_angles = [ 26.18692, -90.0, -90.000008 ]
+						collision_enabled = false
+						linear_strength = 0.0
+						angular_strength = 0.0
+						friction = 0.1
+						enable_swing_limit = true
+						swing_limit = 30.0
+						swing_offset_angle = [ 0.0, 0.0, 0.0 ]
+						enable_twist_limit = true
+						min_twist_angle = -15.0
+						max_twist_angle = 15.0
+					},
+					{
+						_class = "PhysicsJointConical"
+						parent_body = "DEF_spine_004"
+						child_body = "DEF_spine_005"
+						anchor_origin = [ 0.000004, 6.117821, -0.000076 ]
+						anchor_angles = [ -22.793404, -90.000008, -89.999969 ]
+						collision_enabled = false
+						linear_strength = 0.0
+						angular_strength = 0.0
+						friction = 0.1
+						enable_swing_limit = true
+						swing_limit = 30.0
+						swing_offset_angle = [ 0.0, 0.0, 0.0 ]
+						enable_twist_limit = true
+						min_twist_angle = -15.0
+						max_twist_angle = 15.0
+					},
+					{
+						_class = "PhysicsJointConical"
+						parent_body = "DEF_spine_002"
+						child_body = "DEF_upper_arm_L"
+						anchor_origin = [ 18.339729, 19.315331, -7.181252 ]
+						anchor_angles = [ 2.127428, 110.554436, -146.690704 ]
+						collision_enabled = false
+						linear_strength = 0.0
+						angular_strength = 0.0
+						friction = 0.1
+						enable_swing_limit = true
+						swing_limit = 30.0
+						swing_offset_angle = [ 0.0, 0.0, 0.0 ]
+						enable_twist_limit = true
+						min_twist_angle = -15.0
+						max_twist_angle = 15.0
+					},
+					{
+						_class = "PhysicsJointConical"
+						parent_body = "DEF_upper_arm_L"
+						child_body = "DEF_forearm_L"
+						anchor_origin = [ -0.000027, 19.70977, -0.000153 ]
+						anchor_angles = [ -14.312418, 90.000046, -89.999969 ]
+						collision_enabled = false
+						linear_strength = 0.0
+						angular_strength = 0.0
+						friction = 0.1
+						enable_swing_limit = true
+						swing_limit = 30.0
+						swing_offset_angle = [ 0.0, 0.0, 0.0 ]
+						enable_twist_limit = true
+						min_twist_angle = -15.0
+						max_twist_angle = 15.0
+					},
+					{
+						_class = "PhysicsJointConical"
+						parent_body = "DEF_forearm_L"
+						child_body = "DEF_hand_L"
+						anchor_origin = [ -0.000034, 20.111679, -0.000122 ]
+						anchor_angles = [ -6.379653, 78.482185, -88.702873 ]
+						collision_enabled = false
+						linear_strength = 0.0
+						angular_strength = 0.0
+						friction = 0.1
+						enable_swing_limit = true
+						swing_limit = 30.0
+						swing_offset_angle = [ 0.0, 0.0, 0.0 ]
+						enable_twist_limit = true
+						min_twist_angle = -15.0
+						max_twist_angle = 15.0
+					},
+					{
+						_class = "PhysicsJointConical"
+						parent_body = "DEF_spine_002"
+						child_body = "DEF_upper_arm_R"
+						anchor_origin = [ -18.339691, 19.315331, -7.181259 ]
+						anchor_angles = [ -2.127428, -110.554436, -146.69072 ]
+						collision_enabled = false
+						linear_strength = 0.0
+						angular_strength = 0.0
+						friction = 0.1
+						enable_swing_limit = true
+						swing_limit = 30.0
+						swing_offset_angle = [ 0.0, 0.0, 0.0 ]
+						enable_twist_limit = true
+						min_twist_angle = -15.0
+						max_twist_angle = 15.0
+					},
+					{
+						_class = "PhysicsJointConical"
+						parent_body = "DEF_upper_arm_R"
+						child_body = "DEF_forearm_R"
+						anchor_origin = [ 0.000015, 19.709785, -0.000114 ]
+						anchor_angles = [ 14.312413, -90.000053, -89.999969 ]
+						collision_enabled = false
+						linear_strength = 0.0
+						angular_strength = 0.0
+						friction = 0.1
+						enable_swing_limit = true
+						swing_limit = 30.0
+						swing_offset_angle = [ 0.0, 0.0, 0.0 ]
+						enable_twist_limit = true
+						min_twist_angle = -15.0
+						max_twist_angle = 15.0
+					},
+					{
+						_class = "PhysicsJointConical"
+						parent_body = "DEF_forearm_R"
+						child_body = "DEF_hand_R"
+						anchor_origin = [ 0.000015, 20.111748, -0.000084 ]
+						anchor_angles = [ 6.379666, -78.482185, -88.702873 ]
+						collision_enabled = false
+						linear_strength = 0.0
+						angular_strength = 0.0
+						friction = 0.1
+						enable_swing_limit = true
+						swing_limit = 30.0
+						swing_offset_angle = [ 0.0, 0.0, 0.0 ]
+						enable_twist_limit = true
+						min_twist_angle = -15.0
+						max_twist_angle = 15.0
+					},
+					{
+						_class = "PhysicsJointConical"
+						parent_body = "DEF_spine"
+						child_body = "DEF_thigh_L"
+						anchor_origin = [ 9.306072, 1.620598, 0.632538 ]
+						anchor_angles = [ 14.0267, 96.152229, 73.891342 ]
+						collision_enabled = false
+						linear_strength = 0.0
+						angular_strength = 0.0
+						friction = 0.1
+						enable_swing_limit = true
+						swing_limit = 30.0
+						swing_offset_angle = [ 0.0, 0.0, 0.0 ]
+						enable_twist_limit = true
+						min_twist_angle = -15.0
+						max_twist_angle = 15.0
+					},
+					{
+						_class = "PhysicsJointConical"
+						parent_body = "DEF_thigh_L"
+						child_body = "DEF_shin_L"
+						anchor_origin = [ 0.000007, 34.465492, -0.000023 ]
+						anchor_angles = [ 4.77048, -90.0, -89.999992 ]
+						collision_enabled = false
+						linear_strength = 0.0
+						angular_strength = 0.0
+						friction = 0.1
+						enable_swing_limit = true
+						swing_limit = 30.0
+						swing_offset_angle = [ 0.0, 0.0, 0.0 ]
+						enable_twist_limit = true
+						min_twist_angle = -15.0
+						max_twist_angle = 15.0
+					},
+					{
+						_class = "PhysicsJointConical"
+						parent_body = "DEF_shin_L"
+						child_body = "DEF_foot_L"
+						anchor_origin = [ 0.00001, 30.470631, -0.000008 ]
+						anchor_angles = [ -54.612194, -141.989441, -23.476627 ]
+						collision_enabled = false
+						linear_strength = 0.0
+						angular_strength = 0.0
+						friction = 0.1
+						enable_swing_limit = true
+						swing_limit = 30.0
+						swing_offset_angle = [ 0.0, 0.0, 0.0 ]
+						enable_twist_limit = true
+						min_twist_angle = -15.0
+						max_twist_angle = 15.0
+					},
+					{
+						_class = "PhysicsJointConical"
+						parent_body = "DEF_spine"
+						child_body = "DEF_thigh_R"
+						anchor_origin = [ -9.30607, 1.62059, 0.63253 ]
+						anchor_angles = [ -14.026698, -96.152237, 73.89138 ]
+						collision_enabled = false
+						linear_strength = 0.0
+						angular_strength = 0.0
+						friction = 0.1
+						enable_swing_limit = true
+						swing_limit = 30.0
+						swing_offset_angle = [ 0.0, 0.0, 0.0 ]
+						enable_twist_limit = true
+						min_twist_angle = -15.0
+						max_twist_angle = 15.0
+					},
+					{
+						_class = "PhysicsJointConical"
+						parent_body = "DEF_thigh_R"
+						child_body = "DEF_shin_R"
+						anchor_origin = [ 0.000007, 34.465469, -0.000046 ]
+						anchor_angles = [ 4.770498, -89.999985, -90.000008 ]
+						collision_enabled = false
+						linear_strength = 0.0
+						angular_strength = 0.0
+						friction = 0.1
+						enable_swing_limit = true
+						swing_limit = 30.0
+						swing_offset_angle = [ 0.0, 0.0, 0.0 ]
+						enable_twist_limit = true
+						min_twist_angle = -15.0
+						max_twist_angle = 15.0
+					},
+					{
+						_class = "PhysicsJointConical"
+						parent_body = "DEF_shin_R"
+						child_body = "DEF_foot_R"
+						anchor_origin = [ 0.000011, 30.470606, -0.000031 ]
+						anchor_angles = [ -54.612213, -38.010597, -156.523392 ]
+						collision_enabled = false
+						linear_strength = 0.0
+						angular_strength = 0.0
+						friction = 0.1
+						enable_swing_limit = true
+						swing_limit = 30.0
+						swing_offset_angle = [ 0.0, 0.0, 0.0 ]
+						enable_twist_limit = true
+						min_twist_angle = -15.0
+						max_twist_angle = 15.0
+					},
+				]
+			},
+			{
+				_class = "PhysicsShapeList"
+				children = 
+				[
+					{
+						_class = "PhysicsShapeCapsule"
+						parent_bone = "DEF_spine"
+						surface_prop = "default"
+						collision_tags = "solid"
+						radius = 10.0
+						point0 = [ 9.306072, 0.0, 0.0 ]
+						point1 = [ -9.306072, 0.0, 0.0 ]
+					},
+					{
+						_class = "PhysicsShapeCapsule"
+						parent_bone = "DEF_spine_002"
+						surface_prop = "default"
+						collision_tags = "solid"
+						radius = 13.0
+						point0 = [ -3.0, 0.0, 0.0 ]
+						point1 = [ 3.0, 0.0, 0.0 ]
+					},
+					{
+						_class = "PhysicsShapeCapsule"
+						parent_bone = "DEF_spine_004"
+						surface_prop = "default"
+						collision_tags = "solid"
+						radius = 8.0
+						point0 = [ 10.000189, -6.925811, 1.194035 ]
+						point1 = [ -9.999811, -6.925811, 1.194035 ]
+					},
+					{
+						_class = "PhysicsShapeCapsule"
+						parent_bone = "DEF_spine_005"
+						surface_prop = "default"
+						collision_tags = "solid"
+						radius = 6.0
+						point0 = [ 0.0, 0.0, 0.0 ]
+						point1 = [ 0.0, 9.031122, 1.447861 ]
+					},
+					{
+						_class = "PhysicsShapeCapsule"
+						parent_bone = "DEF_upper_arm_L"
+						surface_prop = "default"
+						collision_tags = "solid"
+						radius = 5.0
+						point0 = [ 0.481022, 0.917526, 0.875881 ]
+						point1 = [ 0.481022, 17.9175, 0.875881 ]
+					},
+					{
+						_class = "PhysicsShapeCapsule"
+						parent_bone = "DEF_forearm_L"
+						surface_prop = "default"
+						collision_tags = "solid"
+						radius = 5.0
+						point0 = [ 0.0, 0.0, 0.0 ]
+						point1 = [ 0.0, 18.0, 0.0 ]
+					},
+					{
+						_class = "PhysicsShapeBox"
+						parent_bone = "DEF_hand_L"
+						surface_prop = "default"
+						collision_tags = "solid"
+						origin = [ 0.092202, 7.553003, 1.125073 ]
+						angles = [ 0.0, 0.0, 0.0 ]
+						dimensions = [ 9.320358, 15.212002, 8.005898 ]
+					},
+					{
+						_class = "PhysicsShapeCapsule"
+						parent_bone = "DEF_upper_arm_R"
+						surface_prop = "default"
+						collision_tags = "solid"
+						radius = 5.0
+						point0 = [ 0.481022, 0.917526, 0.875881 ]
+						point1 = [ 0.481022, 17.9175, 0.875881 ]
+					},
+					{
+						_class = "PhysicsShapeCapsule"
+						parent_bone = "DEF_forearm_R"
+						surface_prop = "default"
+						collision_tags = "solid"
+						radius = 5.0
+						point0 = [ 0.0, 0.0, 0.0 ]
+						point1 = [ 0.0, 18.0, 0.0 ]
+					},
+					{
+						_class = "PhysicsShapeBox"
+						parent_bone = "DEF_hand_L"
+						surface_prop = "default"
+						collision_tags = "solid"
+						origin = [ 0.092202, 7.553003, 1.125073 ]
+						angles = [ 0.0, 0.0, 0.0 ]
+						dimensions = [ 9.320358, 15.212002, 8.005898 ]
+					},
+					{
+						_class = "PhysicsShapeCapsule"
+						parent_bone = "DEF_thigh_L"
+						surface_prop = "default"
+						collision_tags = "solid"
+						radius = 7.0
+						point0 = [ -0.552178, 5.654074, -0.212244 ]
+						point1 = [ 0.227697, 32.830952, -0.244047 ]
+					},
+					{
+						_class = "PhysicsShapeCapsule"
+						parent_bone = "DEF_shin_L"
+						surface_prop = "default"
+						collision_tags = "solid"
+						radius = 6.0
+						point0 = [ -0.893747, -0.184789, 0.72566 ]
+						point1 = [ -0.828788, 30.395874, 0.550765 ]
+					},
+					{
+						_class = "PhysicsShapeBox"
+						parent_bone = "DEF_foot_L"
+						surface_prop = "default"
+						collision_tags = "solid"
+						origin = [ -0.008213, 4.671595, -0.300029 ]
+						angles = [ -0.220002, -0.978453, -21.078135 ]
+						dimensions = [ 10.0, 24.691277, 7.71608 ]
+					},
+					{
+						_class = "PhysicsShapeCapsule"
+						parent_bone = "DEF_thigh_R"
+						surface_prop = "default"
+						collision_tags = "solid"
+						radius = 7.0
+						point0 = [ 0.578415, 5.915877, -0.222284 ]
+						point1 = [ 0.227697, 32.830952, -0.244047 ]
+					},
+					{
+						_class = "PhysicsShapeCapsule"
+						parent_bone = "DEF_shin_R"
+						surface_prop = "default"
+						collision_tags = "solid"
+						radius = 6.0
+						point0 = [ 0.940561, 0.063869, 1.288743 ]
+						point1 = [ 1.00552, 30.644533, 1.113848 ]
+					},
+					{
+						_class = "PhysicsShapeBox"
+						parent_bone = "DEF_foot_R"
+						surface_prop = "default"
+						collision_tags = "solid"
+						origin = [ -0.008213, 4.671595, -0.300029 ]
+						angles = [ -0.220002, -0.978453, -21.078135 ]
+						dimensions = [ 10.0, 24.691277, 7.71608 ]
+					},
+				]
+			},
+			{
+				_class = "WeightListList"
+				children = 
+				[
+					{
+						_class = "WeightList"
+						name = "Upper"
+						default_weight = 0.0
+						weights = 
+						[
+							{
+								bone = "DEF_shoulder_L"
+								weight = 1.0
+							},
+							{
+								bone = "DEF_shoulder_R"
+								weight = 1.0
+							},
+							{
+								bone = "DEF_spine"
+								weight = 0.426443
+							},
+							{
+								bone = "DEF_spine_001"
+								weight = 0.476723
+							},
+							{
+								bone = "DEF_spine_002"
+								weight = 0.586592
+							},
+							{
+								bone = "DEF_spine_003"
+								weight = 1.0
+							},
+							{
+								bone = "DEF_spine_004"
+								weight = 1.0
+							},
+							{
+								bone = "DEF_spine_005"
+								weight = 1.0
+							},
+							{
+								bone = "DEF_thigh_L"
+								weight = 0.0
+							},
+							{
+								bone = "DEF_thigh_L_001"
+								weight = 0.0
+							},
+							{
+								bone = "DEF_thigh_R"
+								weight = 0.0
+							},
+							{
+								bone = "DEF_thigh_R_001"
+								weight = 0.0
+							},
+						]
+						master_morph_weight = -1.0
+						morph_weights = [  ]
+					},
+				]
+			},
+		]
+		model_archetype = ""
+		primary_associated_entity = ""
+		anim_graph_name = "animgraphs/Enemy.vanmgrph"
+		base_model_name = ""
+	}
+}

@@ -1,0 +1,246 @@
+@using System
+@using System.Collections.Generic
+@using System.Globalization
+@using System.Linq
+@using Sandbox
+@using Sandbox.UI
+@inherits PanelComponent
+
+@*
+	When to parry. Over the fist (or foot) of every man mid-swing, a ring closes onto it and lands the moment the
+	parry window opens — then NOW flashes in its place for as long as the window lasts. Raise the guard on NOW.
+
+	A blow that can't be parried (his kick) gets a red ring and a red BLOCK instead: guard up and eat it, or be
+	somewhere else.
+
+	Timed off when the blow will actually land, which the enemy learns from the clip's hit event — see
+	EnemyParryCue. Drop this next to PlayerHud on the HUD's ScreenPanel.
+*@
+
+<root>
+	@foreach ( var cue in Cues() )
+	{
+		<div class="cue" style="left: @Num( cue.X )%; top: @Num( cue.Y )%;">
+			@if ( cue.Word is null )
+			{
+				<div class="ring" style="@RingStyle( cue )"></div>
+			}
+			else
+			{
+				<label class="word" style="@WordStyle( cue )">@cue.Word</label>
+			}
+		</div>
+	}
+</root>
+
+<style>
+	ParryWarningHud {
+		position: absolute;
+		top: 0px;
+		left: 0px;
+		width: 100%;
+		height: 100%;
+		font-family: VCR OSD Mono;
+		color: white;
+		pointer-events: none;
+	}
+
+	/* a zero-size point on the fist; everything inside is centred on it */
+	.cue {
+		position: absolute;
+		width: 0px;
+		height: 0px;
+		align-items: center;
+		justify-content: center;
+	}
+
+	/* colour, size, thickness, glow and font all come from the inspector — see RingStyle and WordStyle */
+	.ring {
+		position: absolute;
+	}
+
+	.word {
+		position: absolute;
+		width: 400px;
+		margin-left: -200px;
+		text-align: center;
+	}
+</style>
+
+@code {
+	[Property, Group( "Punch Ring" ), Description( "Punch and jab. How wide the ring starts, in pixels, when the swing begins." )]
+	public float PunchStartSize { get; set; } = 140f;
+
+	[Property, Group( "Punch Ring" ), Description( "How wide it is when it lands on the fist — the moment to parry." )]
+	public float PunchEndSize { get; set; } = 18f;
+
+	[Property, Group( "Punch Ring" ), Description( "Line thickness of the ring, in pixels." )]
+	public float PunchThickness { get; set; } = 5f;
+
+	[Property, Group( "Punch Ring" ), Description( "The ring and the NOW that replaces it." )]
+	public Color PunchColor { get; set; } = new Color( 1f, 0.78f, 0.22f );
+
+	[Property, Group( "Kick Ring" ), Description( "The kick, which can't be parried. How wide the ring starts, in pixels." )]
+	public float KickStartSize { get; set; } = 180f;
+
+	[Property, Group( "Kick Ring" ), Description( "How wide it is when it lands on the foot." )]
+	public float KickEndSize { get; set; } = 24f;
+
+	[Property, Group( "Kick Ring" ), Description( "Line thickness of the ring, in pixels." )]
+	public float KickThickness { get; set; } = 5f;
+
+	[Property, Group( "Kick Ring" ), Description( "The ring and the BLOCK that replaces it." )]
+	public Color KickColor { get; set; } = new Color( 1f, 0.29f, 0.24f );
+
+	[Property, Group( "Kick Ring" ), Description( "BLOCK shows this long before the kick lands, since there's no parry window to show." )]
+	public float BlockLead { get; set; } = 0.2f;
+
+	[Property, Group( "Glow" ), Description( "How far the glow spreads round the rings and words, in pixels. Zero for none." )]
+	public float Glow { get; set; } = 12f;
+
+	[Property, Group( "Glow" ), Range( 0f, 1f ), Description( "How strong the glow is." )]
+	public float GlowStrength { get; set; } = 0.8f;
+
+	[Property, Group( "Words" ), Description( "Font family for NOW and BLOCK — the name inside the font file, not the file name. upheavtt.ttf calls itself \"Upheaval TT (BRK)\"." )]
+	public string WordFont { get; set; } = "Upheaval TT (BRK)";
+
+	[Property, Group( "Words" ), Description( "Seconds for NOW and BLOCK to scale up to full size. Keep it tiny — it's a snap, not a grow." )]
+	public float ScaleInTime { get; set; } = 0.06f;
+
+	[Property, Group( "Words" ), Description( "How big the word starts, as a share of its full size, before it snaps up." )]
+	public float ScaleInFrom { get; set; } = 0.3f;
+
+	[Property, Group( "Words" ), Description( "Size of NOW and BLOCK, in pixels." )]
+	public float WordSize { get; set; } = 40f;
+
+	[Property, Group( "Words" ), Description( "What shows when it's time to parry." )]
+	public string ParryWord { get; set; } = "NOW";
+
+	[Property, Group( "Words" ), Description( "What shows on a blow that can't be parried." )]
+	public string BlockWord { get; set; } = "BLOCK";
+
+	[Property, Group( "Sound" ), Description( "Played as NOW comes up — the cue to raise the guard. In first person this is the part you'll catch when he's off to the side." )]
+	public SoundEvent ParryCueSound { get; set; }
+
+	[Property, Description( "Farther away than this, a swing gets no warning — it's nobody near enough to be swinging at you." )]
+	public float MaxDistance { get; set; } = 600f;
+
+	readonly record struct Cue( float X, float Y, float RingSize, float Alpha, string Word, bool Danger, float Scale = 1f );
+
+	// which swing of which man has already had its sound, so it plays once per swing rather than every frame
+	readonly Dictionary<Enemy, int> cued = new();
+
+	List<Cue> current = new();
+
+	protected override void OnUpdate()
+	{
+		// set on the panel in code rather than written into the style text: a family name with brackets in it,
+		// like "Upheaval TT (BRK)", is exactly what a style parser trips over. Only the words have text, so the
+		// whole panel can carry it
+		if ( Panel is not null && Panel.Style.FontFamily != WordFont )
+			Panel.Style.FontFamily = WordFont;
+
+		current = Build();
+	}
+
+	List<Cue> Cues() => current;
+
+	List<Cue> Build()
+	{
+		var list = new List<Cue>();
+		var camera = Scene.Camera;
+
+		if ( !camera.IsValid() )
+			return list;
+
+		foreach ( var enemy in Scene.GetAllComponents<Enemy>() )
+		{
+			if ( !enemy.IsSwinging )
+				continue;
+
+			if ( camera.WorldPosition.Distance( enemy.WorldPosition ) > MaxDistance )
+				continue;
+
+			float time = enemy.SwingTime;
+			float hit = enemy.ExpectedHitTime;
+			float window = enemy.SwingParryWindow;
+			bool danger = window <= 0f;
+
+			// when the ring lands: the window opening, or for a blow with none, BlockLead before it hits
+			float open = MathF.Max( 0.01f, danger ? hit - BlockLead : hit - window );
+
+			var point = camera.PointToScreenNormal( enemy.StrikePoint, out bool behind );
+
+			if ( behind )
+				continue;
+
+			if ( time < open )
+			{
+				float progress = ( time / open ).Clamp( 0f, 1f );
+				float size = danger ? KickStartSize.LerpTo( KickEndSize, progress ) : PunchStartSize.LerpTo( PunchEndSize, progress );
+
+				// comes up out of nothing over the first bit of the swing instead of popping in at full size
+				float alpha = ( progress / 0.15f ).Clamp( 0f, 1f );
+
+				list.Add( new Cue( point.x * 100f, point.y * 100f, size, alpha, null, danger ) );
+				continue;
+			}
+
+			// snaps up from small rather than popping in at full size, eased so most of the growth is up front
+			float grown = ScaleInTime > 0f ? ( ( time - open ) / ScaleInTime ).Clamp( 0f, 1f ) : 1f;
+			float scale = ScaleInFrom.LerpTo( 1f, 1f - ( 1f - grown ) * ( 1f - grown ) );
+
+			list.Add( new Cue( point.x * 100f, point.y * 100f, 0f, 1f, danger ? BlockWord : ParryWord, danger, scale ) );
+
+			if ( !danger && ParryCueSound is not null && ( !cued.TryGetValue( enemy, out int swing ) || swing != enemy.SwingNumber ) )
+			{
+				cued[enemy] = enemy.SwingNumber;
+				Sfx.Play( ParryCueSound );
+			}
+		}
+
+		return list;
+	}
+
+	string RingStyle( Cue cue )
+	{
+		float size = cue.RingSize;
+		float thickness = cue.Danger ? KickThickness : PunchThickness;
+		var color = cue.Danger ? KickColor : PunchColor;
+
+		return $"width: {Num( size )}px; height: {Num( size )}px; margin-left: {Num( -size / 2f )}px; margin-top: {Num( -size / 2f )}px; " +
+			$"border-radius: {Num( size / 2f )}px; border: {Num( thickness )}px solid {Css( color )}; " +
+			$"box-shadow: 0px 0px {Num( Glow )}px {Css( color, GlowStrength )}; opacity: {Num( cue.Alpha )};";
+	}
+
+	string WordStyle( Cue cue )
+	{
+		var color = cue.Danger ? KickColor : PunchColor;
+
+		return $"transform: scale({Num( cue.Scale )}); font-size: {Num( WordSize )}px; margin-top: {Num( -WordSize * 0.6f )}px; color: {Css( color )}; " +
+			$"text-shadow: 0px 0px {Num( Glow )}px {Css( color, GlowStrength )};";
+	}
+
+	static string Css( Color color, float alpha = 1f ) =>
+		$"rgba({(int)( color.r * 255f )}, {(int)( color.g * 255f )}, {(int)( color.b * 255f )}, {Num( color.a * alpha )})";
+
+	static string Num( float value ) => value.ToString( "0.##", CultureInfo.InvariantCulture );
+
+	protected override int BuildHash()
+	{
+		var hash = new HashCode();
+
+		foreach ( var cue in current )
+		{
+			hash.Add( (int)( cue.X * 10f ) );
+			hash.Add( (int)( cue.Y * 10f ) );
+			hash.Add( (int)cue.RingSize );
+			hash.Add( (int)( cue.Alpha * 20f ) );
+			hash.Add( cue.Word );
+			hash.Add( cue.Danger );
+			hash.Add( (int)( cue.Scale * 50f ) );
+		}
+
+		return hash.ToHashCode();
+	}
+}

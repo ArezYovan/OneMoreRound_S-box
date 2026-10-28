@@ -1,0 +1,32 @@
+{
+  "Name": "Blue Margarita",
+  "Flavour": "Tequila and blue curacao",
+  "Upsides": [
+    "You throw 20% harder",
+    "Thrown things do 25% more damage"
+  ],
+  "Downsides": [],
+  "Effects": [
+    {
+      "Stat": "ThrowForce",
+      "Percent": 20,
+      "Flat": 0
+    },
+    {
+      "Stat": "ThrowDamage",
+      "Percent": 25,
+      "Flat": 0
+    }
+  ],
+  "Rarity": "Purple",
+  "Weight": 1,
+  "OnePerNight": false,
+  "Price": 30,
+  "Tint": "1,1,1,1",
+  "Model": {
+    "Id": "de53138c-e87a-41db-9dd9-a4aef8be3143",
+    "Path": "models/bottle_models/glass_cup/glass_blue.vmdl"
+  },
+  "__references": [],
+  "__version": 0
+}

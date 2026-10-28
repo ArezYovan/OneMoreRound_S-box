@@ -1,0 +1,33 @@
+{
+  "Name": "Sucker Punch",
+  "Flavour": "Cognac",
+  "Upsides": [
+    "Parry a man and your next hit knocks him straight into a stagger"
+  ],
+  "Downsides": [
+    "Blocking costs 12 stamina a hit, and your guard breaks if you're out of wind"
+  ],
+  "Effects": [
+    {
+      "Stat": "CounterPunch",
+      "Percent": 0,
+      "Flat": 1
+    },
+    {
+      "Stat": "Guard",
+      "Percent": 0,
+      "Flat": -12
+    }
+  ],
+  "Rarity": "Gold",
+  "Weight": 1,
+  "OnePerNight": true,
+  "Price": 50,
+  "Tint": "1,1,1,1",
+  "Model": {
+    "Id": "96579d9d-ddf4-47b9-ae5b-427bc5e1d069",
+    "Path": "models/bottle_models/hennesy.vmdl"
+  },
+  "__references": [],
+  "__version": 0
+}

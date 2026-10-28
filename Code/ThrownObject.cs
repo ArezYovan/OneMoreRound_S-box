@@ -36,13 +36,36 @@ public sealed class ThrownObject : Component, Component.ICollisionListener
 	[Property, Group( "Stagger" ), Description( "Extra stagger per unit/s of closing speed." )]
 	public float StaggerPerSpeed { get; set; } = 0.03f;
 
+	[Property, Group( "Ricochet" ), Description( "Farthest the next man can be for a throw to ricochet on to him." )]
+	public float RicochetRange { get; set; } = 700f;
+
+	[Property, Group( "Ricochet" ), Description( "Speed it flies on at. Fixed rather than kept from the hit, which bleeds most of it away." )]
+	public float RicochetSpeed { get; set; } = 750f;
+
+	[Property, Group( "Ricochet" ), Description( "How high up the next man it aims, from his feet. About his chest." )]
+	public float RicochetAimHeight { get; set; } = 70f;
+
 	[Property, Group( "Debug" )] public bool LogHits { get; set; } = true;
 
 	public bool IsArmed => armed && !timeUntilDisarm;
 
+	/// <summary>Multiplies the damage this throw does. Reset by every Arm, so it only ever lasts one throw — the player's grab sets it right after.</summary>
+	public float DamageScale { get; set; } = 1f;
+
+	/// <summary>How many more men this throw flies on to after hitting one. Reset by every Arm, like DamageScale.</summary>
+	public int Bounces { get; set; }
+
+	/// <summary>Bowling Ball: whoever this crashes into goes straight into a stagger. Reset by every Arm, like DamageScale.</summary>
+	public bool KnocksDown { get; set; }
+
 	GameObject thrower;
 	Rigidbody body;
 	bool armed;
+
+	// this throw's own ceiling on damage, at most MaxDamage. An enemy's throw passes a lower one, so a chair
+	// lobbed from across the room is a warning shot rather than a one-hit knockout — and the prop keeps the
+	// full MaxDamage for the next time the player throws it
+	float damageCap;
 	TimeUntil timeUntilDisarm;
 	TimeSince timeSinceArmed;
 
@@ -60,15 +83,26 @@ public sealed class ThrownObject : Component, Component.ICollisionListener
 	// should be able to take out two people on one throw
 	readonly HashSet<GameObject> alreadyHit = new();
 
+	// who a ricochet is heading for. Picked in the collision and launched on the next physics tick, since
+	// a velocity set in the middle of a collision can be overwritten by the bounce the physics is working out
+	Enemy ricochetTarget;
+
 	public void Arm( GameObject attacker ) => Arm( attacker, ArmedTime );
 
-	public void Arm( GameObject attacker, float armedTime )
+	public void Arm( GameObject attacker, float armedTime ) => Arm( attacker, armedTime, MaxDamage );
+
+	public void Arm( GameObject attacker, float armedTime, float maxDamage )
 	{
 		thrower = attacker;
+		damageCap = MathF.Min( maxDamage, MaxDamage );
 		armed = true;
 		timeUntilDisarm = armedTime;
 		timeSinceArmed = 0;
 		alreadyHit.Clear();
+		DamageScale = 1f;
+		Bounces = 0;
+		KnocksDown = false;
+		ricochetTarget = null;
 
 		body = Components.Get<Rigidbody>();
 
@@ -95,10 +129,14 @@ public sealed class ThrownObject : Component, Component.ICollisionListener
 	{
 		armed = false;
 		alreadyHit.Clear();
+		ricochetTarget = null;
 	}
 
 	protected override void OnFixedUpdate()
 	{
+		if ( ricochetTarget is not null )
+			LaunchRicochet();
+
 		if ( body.IsValid() )
 			speedBeforeStep = body.Velocity.Length;
 	}
@@ -134,20 +172,99 @@ public sealed class ThrownObject : Component, Component.ICollisionListener
 		if ( !victim.IsValid() || !alreadyHit.Add( victim ) )
 			return;
 
+		// asked before the hit lands: a throw that kills a man should still ricochet off him, but one that
+		// merely bounces off a body already on the floor shouldn't
+		bool wasStanding = !health.IsValid() || !health.IsDead;
+
 		float mass = ScaleWithMass ? ( body?.PhysicsBody?.Mass ?? 20f ) / 20f : 1f;
-		float damage = MathF.Min( MaxDamage, ( BaseDamage + speed * DamagePerSpeed ) * mass );
+		// scaled after the cap, so a drink moves the damage of a heavy prop that was already at the cap as well
+		float damage = MathF.Min( damageCap, ( BaseDamage + speed * DamagePerSpeed ) * mass ) * DamageScale;
 		float rock = BaseStagger + speed * StaggerPerSpeed;
 
 		// stagger before damage, the same order a punch uses, so a hit that does both still knocks down
 		if ( stagger.IsValid() )
-			stagger.Add( rock, thrower );
+		{
+			if ( KnocksDown )
+				stagger.ForceStagger( thrower );
+			else
+				stagger.Add( rock, thrower );
+		}
 
 		if ( health.IsValid() )
 			health.TakeDamage( damage, thrower, collision.Contact.Point );
 
 		if ( LogHits )
-			Log.Info( $"[Thrown] {GameObject.Name} struck {other.Name} at {speed:0} u/s for {damage:0.#} and {rock:0} stagger" );
+			Log.Info( $"[Thrown] {GameObject.Name} struck {other.Name} at {speed:0} u/s for {damage:0.#} and {( KnocksDown ? "a knockdown" : $"{rock:0} stagger" )}" );
+
+		// only off a man — a ricochet off the wall or a table is just physics
+		if ( Bounces > 0 && wasStanding && victim.Components.Get<Enemy>( FindMode.EverythingInSelfAndAncestors ).IsValid() )
+		{
+			ricochetTarget = FindRicochetTarget();
+
+			if ( ricochetTarget is not null )
+				Bounces--;
+		}
 	}
+
+	/// <summary>The nearest man this hasn't already hit, standing, in range and in plain sight of where it is now.</summary>
+	Enemy FindRicochetTarget()
+	{
+		Enemy best = null;
+		float bestDistance = RicochetRange;
+
+		foreach ( var enemy in Scene.GetAllComponents<Enemy>() )
+		{
+			if ( !enemy.IsValid() || enemy.State == EnemyState.Dead || alreadyHit.Contains( enemy.GameObject ) || IsPartOf( enemy.GameObject, thrower ) )
+				continue;
+
+			// a thrown man is an Enemy too, and the nearest one to himself — without this he'd ricochet straight up
+			if ( IsPartOf( GameObject, enemy.GameObject ) )
+				continue;
+
+			float distance = ( RicochetAim( enemy ) - WorldPosition ).Length;
+
+			if ( distance >= bestDistance )
+				continue;
+
+			// bodies don't block it — it can clip past a man on the way — but the level does
+			var trace = Scene.Trace.Ray( WorldPosition, RicochetAim( enemy ) )
+				.IgnoreGameObjectHierarchy( GameObject )
+				.Run();
+
+			if ( trace.Hit && trace.GameObject.IsValid() && !IsPartOf( trace.GameObject, enemy.GameObject )
+				&& !trace.GameObject.Components.Get<Rigidbody>( FindMode.EverythingInSelfAndAncestors ).IsValid() )
+				continue;
+
+			best = enemy;
+			bestDistance = distance;
+		}
+
+		return best;
+	}
+
+	/// <summary>Sends it straight at the man picked in the collision, with a little lift to cancel the drop on the way.</summary>
+	void LaunchRicochet()
+	{
+		var target = ricochetTarget;
+		ricochetTarget = null;
+
+		if ( !target.IsValid() || !body.IsValid() )
+			return;
+
+		var to = RicochetAim( target ) - WorldPosition;
+		float travelTime = to.Length / MathF.Max( RicochetSpeed, 1f );
+
+		body.Velocity = to.Normal * RicochetSpeed + Vector3.Up * ( 0.5f * -Scene.PhysicsWorld.Gravity.z * travelTime );
+
+		// dangerous again for the whole trip, and taken on trust for the first moment like a fresh throw
+		timeUntilDisarm = ArmedTime;
+		timeSinceArmed = 0;
+
+		if ( LogHits )
+			Log.Info( $"[Thrown] {GameObject.Name} ricochets on to {target.GameObject.Name} — {Bounces} bounce(s) left" );
+	}
+
+	Vector3 RicochetAim( Enemy enemy ) => enemy.WorldPosition + Vector3.Up * RicochetAimHeight;
 
 	public void OnCollisionUpdate( Collision collision ) { }
 	public void OnCollisionStop( CollisionStop collision ) { }

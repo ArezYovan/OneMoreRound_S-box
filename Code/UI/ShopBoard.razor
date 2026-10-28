@@ -1,0 +1,272 @@
+@using System
+@using System.Linq
+@using Sandbox
+@using Sandbox.UI
+@inherits PanelComponent
+
+@*
+	The bar's own board, in the world: what's in your pocket, a reroll and done. It comes up a moment after the
+	question has been answered yes, in the same plain white as the question, and the two words glow under the
+	cursor. Spending counts the money down fast rather than snapping it.
+
+	Goes on its own GameObject with a WorldPanel, separate from RoundQuestion — that one drops its whole object
+	when it's put away. Clicking needs the same WorldInput on the camera.
+*@
+
+<root>
+	<div class="board @( Visible ? "shown" : "" )">
+		<label class="money">@MoneyText</label>
+
+		<div class="actions">
+			@* the price hangs under re-roll without pushing it off the line done sits on *@
+			<div class="action @( CanReroll ? "" : "off" )" onclick=@Reroll>
+				<label class="word">re-roll</label>
+				<label class="price">@RerollPrice</label>
+			</div>
+			<div class="action" onclick=@Done>
+				<label class="word">done</label>
+			</div>
+		</div>
+	</div>
+</root>
+
+<style>
+	ShopBoard {
+		width: 100%;
+		height: 100%;
+		font-family: VCR OSD Mono;
+		color: white;
+	}
+
+	.board {
+		width: 100%;
+		height: 100%;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		opacity: 0;
+		pointer-events: none;
+	}
+
+	/* fades in only. Going the other way it vanishes at once — by then it has dropped out of sight, and a fade
+	   would play it back at its spot as it snaps home */
+	.board.shown {
+		opacity: 1;
+		transition: opacity 0.2s ease-out;
+		pointer-events: all;
+	}
+
+	.money {
+		font-size: 150px;
+	}
+
+	/* lined up along their tops, so the price under re-roll hangs down instead of lifting it above done */
+	.actions {
+		flex-direction: row;
+		justify-content: space-around;
+		align-items: flex-start;
+		width: 100%;
+		margin-top: 40px;
+	}
+
+	.action {
+		flex-direction: column;
+		align-items: center;
+		padding: 10px 40px;
+		cursor: pointer;
+	}
+
+	.word {
+		font-size: 90px;
+		transition: text-shadow 0.15s ease-out;
+	}
+
+	.price {
+		font-size: 50px;
+		margin-top: 4px;
+		transition: text-shadow 0.15s ease-out;
+	}
+
+	.action:hover .word,
+	.action:hover .price {
+		text-shadow: 0px 0px 30px rgba(255, 255, 255, 1);
+	}
+
+	/* can't afford it: dimmed, and nothing to glow at */
+	.action.off {
+		opacity: 0.35;
+	}
+
+	.action.off:hover .word,
+	.action.off:hover .price {
+		text-shadow: none;
+	}
+</style>
+
+@code {
+	[Property, Description( "Seconds after the drinks come out before the board pops up — room for the question to drop out of the way first." )]
+	public float AppearDelay { get; set; } = 0.8f;
+
+	[Property, Group( "Motion" ), Description( "How far below its spot it starts, in world units, before it rises into place." )]
+	public float RiseFrom { get; set; } = 40f;
+
+	[Property, Group( "Motion" ), Description( "How far it overshoots above its spot on the way up, before settling back down onto it." )]
+	public float Overshoot { get; set; } = 8f;
+
+	[Property, Group( "Motion" ), Description( "Seconds to rise, overshoot and settle." )]
+	public float AppearTime { get; set; } = 0.5f;
+
+	[Property, Group( "Motion" ), Description( "Once you're done: how far it bobs up before dropping away." )]
+	public float PutAwayRise { get; set; } = 8f;
+
+	[Property, Group( "Motion" ), Description( "Once you're done: how far it drops before it's gone." )]
+	public float DropDistance { get; set; } = 80f;
+
+	[Property, Group( "Motion" ), Description( "Seconds from done to gone, the bob and the drop together." )]
+	public float PutAwayTime { get; set; } = 0.6f;
+
+	[Property, Description( "How fast the money counts to a new amount, as a share of the gap closed per second. Higher is snappier." )]
+	public float CountSpeed { get; set; } = 10f;
+
+	[Property, Description( "The slowest it ever counts, in dollars per second, so the last few dollars don't crawl." )]
+	public float MinCountRate { get; set; } = 60f;
+
+	[Property, Group( "Sound" ), Description( "Played as the board rises into place." )]
+	public SoundEvent AppearSound { get; set; }
+
+	[Property, Group( "Sound" ), Description( "Played when the pointer lands on re-roll or done." )]
+	public SoundEvent HoverSound { get; set; }
+
+	[Property, Group( "Sound" ), Description( "Played on done. Re-roll's own sounds — the re-roll and not being able to afford it — are on the BarShop, so every way of re-rolling shares them." )]
+	public SoundEvent DoneSound { get; set; }
+
+	readonly HoverSounds hoverSounds = new();
+
+	BarShop shop;
+	BarShop Shop => shop.IsValid() ? shop : ( shop = Scene.GetAllComponents<BarShop>().FirstOrDefault() );
+
+	RunManager Run => Shop.IsValid() ? Shop.Run : null;
+
+	// up once the drinks are out and the delay has passed; down the moment you're done and the screen goes black
+	bool Shown => Run.IsValid()
+		&& Run.Phase == RunPhase.Shop
+		&& !Run.LeavingBar
+		&& Run.TimeInPhase >= AppearDelay;
+
+	bool CanReroll => Shop.IsValid() && Shop.CanReroll;
+
+	float shownMoney;
+	bool wasShown;
+
+	string MoneyText => $"{(int)MathF.Round( shownMoney )}$";
+	string RerollPrice => Shop.IsValid() ? $"{Shop.RerollCost}$" : "";
+
+	// on its way down after done: still drawn, but nothing on it answers any more
+	bool exiting;
+	TimeSince timeSinceShown;
+	TimeSince timeSinceDone;
+	Vector3 home;
+	bool homeKnown;
+
+	bool Visible => Shown || exiting;
+
+	protected override void OnUpdate()
+	{
+		float target = Run.IsValid() ? Run.Money : 0f;
+
+		if ( Shown && !wasShown )
+		{
+			// arrives already right: the count is for money you spend while it's up, not for the board appearing
+			shownMoney = target;
+			timeSinceShown = 0;
+			exiting = false;
+			RememberHome();
+			UiSound.Play( AppearSound );
+		}
+
+		if ( !Shown && wasShown )
+		{
+			exiting = true;
+			timeSinceDone = 0;
+		}
+
+		wasShown = Shown;
+
+		UpdateMotion();
+		hoverSounds.Update( Clickable ? Panel : null, HoverSound, "action" );
+
+
+		float gap = target - shownMoney;
+		float step = MathF.Max( MathF.Abs( gap ) * CountSpeed, MinCountRate ) * Time.Delta;
+
+		shownMoney = MathF.Abs( gap ) <= step ? target : shownMoney + MathF.Sign( gap ) * step;
+	}
+
+	void RememberHome()
+	{
+		if ( homeKnown )
+			return;
+
+		home = WorldPosition;
+		homeKnown = true;
+	}
+
+	/// <summary>
+	/// Up from below, a little past its spot and back down onto it when it appears; a bob and a drop, the
+	/// question's put-away, once you're done. Straight up and down in the world, whatever the bar is turned to.
+	/// </summary>
+	void UpdateMotion()
+	{
+		if ( !homeKnown )
+			return;
+
+		float offset = 0f;
+
+		if ( exiting )
+		{
+			float t = PutAwayTime > 0f ? ( timeSinceDone / PutAwayTime ).Clamp( 0f, 1f ) : 1f;
+			const float share = 0.25f;
+
+			offset = t < share
+				? PutAwayRise * ( 1f - ( 1f - t / share ) * ( 1f - t / share ) )
+				: PutAwayRise.LerpTo( -DropDistance, MathF.Pow( ( t - share ) / ( 1f - share ), 2f ) );
+
+			if ( t >= 1f )
+			{
+				exiting = false;
+				offset = 0f;
+			}
+		}
+		else if ( Shown )
+		{
+			float t = AppearTime > 0f ? ( timeSinceShown / AppearTime ).Clamp( 0f, 1f ) : 1f;
+			const float share = 0.6f;
+
+			// eased up to the overshoot over most of the time, then settled back onto the spot
+			offset = t < share
+				? ( -RiseFrom ).LerpTo( Overshoot, 1f - MathF.Pow( 1f - t / share, 2f ) )
+				: Overshoot.LerpTo( 0f, 1f - MathF.Pow( 1f - ( t - share ) / ( 1f - share ), 2f ) );
+		}
+
+		WorldPosition = home + Vector3.Up * offset;
+	}
+
+	bool Clickable => Shown && Scene.GetSystem<HitStop>() is not { IsPaused: true };
+
+	void Reroll()
+	{
+		if ( Clickable )
+			Shop?.Reroll();
+	}
+
+	void Done()
+	{
+		if ( !Clickable )
+			return;
+
+		UiSound.Play( DoneSound );
+		Run?.SayReady();
+	}
+
+	protected override int BuildHash() => HashCode.Combine( Visible, (int)MathF.Round( shownMoney ), CanReroll, RerollPrice );
+}

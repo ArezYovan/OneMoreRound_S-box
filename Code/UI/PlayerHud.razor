@@ -1,49 +1,55 @@
 @using System
+@using System.Globalization
 @using System.Linq
 @using Sandbox
 @using Sandbox.UI
 @inherits PanelComponent
 
 <root>
-	<div class="hurt" style="opacity: @HurtFlash;"></div>
+	@* nothing to aim or guard at the bar, and nothing to read once you're down — the run's own screens take over *@
+	@if ( !Hidden )
+	{
+		<div class="tired" style="opacity: @Num( tiredAlpha );"></div>
+		<div class="hurt" style="opacity: @Num( HurtFlash );"></div>
 
-	<div class="hud">
-
-		<div class="row">
-			<label class="key">HEALTH</label>
-			<div class="bar"><div class="fill health" style="width: @(HealthFraction * 100f)%;"></div></div>
-			<label class="val">@HealthText</label>
-		</div>
-
-		<div class="row">
-			<label class="key">STAMINA</label>
-			<div class="bar"><div class="fill @(Winded ? "winded" : "stamina")" style="width: @(StaminaFraction * 100f)%;"></div></div>
-			<label class="val">@StaminaText</label>
-		</div>
-
-		<div class="row">
-			<label class="key">HANDS</label>
-			<label class="val wide">@HoldingText</label>
-		</div>
-
-		<div class="row">
-			<label class="key">ACTION</label>
-			<label class="val wide">@ActionText</label>
-		</div>
-
-		<div class="row">
-			<label class="key">STANDING</label>
-			<label class="val wide">@EnemyText</label>
-		</div>
-
-		@if ( KnockedOut )
+		@if ( LockVisible )
 		{
-			<div class="row">
-				<label class="ko">KNOCKED OUT</label>
-			</div>
+			<div class="lock" style="@LockStyle"></div>
 		}
 
-	</div>
+		<div class="crosshair @(Attacking ? "punch" : "")"></div>
+
+		<div class="stamina @(Winded ? "winded" : "") @(BarRed ? "blink" : "")" style="opacity: @Num( staminaAlpha ); margin-left: @Num( -75f + StaminaShake )px;">
+			<div class="trail" style="width: @Pct( staminaTrail );"></div>
+			<div class="fill" style="width: @Pct( StaminaFraction );"></div>
+		</div>
+
+		@if ( GrabPrompt is not null )
+		{
+			<div class="prompt"><label>@GrabPrompt</label></div>
+		}
+
+		@if ( StaminaWarning is not null )
+		{
+			<div class="winded-text @(TextBlink ? "blink" : "")" style="margin-left: @Num( -75f + StaminaShake )px;"><label>@StaminaWarning</label></div>
+		}
+
+		<div class="health @(LowHealth ? "low" : "")">
+			<div class="labels">
+				<label class="name">HEALTH</label>
+				<label class="value">@HealthText</label>
+			</div>
+			<div class="bar" style="border-color: rgba(255, 70, 55, @Num( 0.15f + LowPulse * 0.6f ));">
+				<div class="trail" style="width: @Pct( healthTrail );"></div>
+				<div class="fill" style="width: @Pct( HealthFraction );"></div>
+				<div class="shine"></div>
+				@for ( int i = 1; i < 10; i++ )
+				{
+					<div class="tick" style="left: @Pct( i / 10f );"></div>
+				}
+			</div>
+		</div>
+	}
 </root>
 
 <style>
@@ -53,8 +59,7 @@
 		left: 0px;
 		width: 100%;
 		height: 100%;
-		font-family: Consolas, monospace;
-		font-size: 15px;
+		font-family: VCR OSD Mono;
 		color: white;
 		pointer-events: none;
 	}
@@ -65,55 +70,207 @@
 		left: 0px;
 		width: 100%;
 		height: 100%;
-		background-color: rgba(190, 30, 30, 0.4);
+		background-color: rgba(190, 30, 30, 0.35);
 	}
 
-	.ko {
-		color: #e0483c;
-	}
-
-	.hud {
+	/* out of wind: the edges of the screen go dark. Clear through the middle, so it never covers what you're aiming at */
+	.tired {
 		position: absolute;
-		top: 24px;
-		left: 24px;
-		flex-direction: column;
-		background-color: rgba(0, 0, 0, 0.55);
-		padding: 12px 16px;
-		border-radius: 4px;
+		top: 0px;
+		left: 0px;
+		width: 100%;
+		height: 100%;
+		background: radial-gradient( rgba( 0, 0, 0, 0 ), rgba( 0, 0, 0, 0 ), rgba( 0, 0, 0, 0.96 ) );
 	}
 
-	.row {
-		flex-direction: row;
-		align-items: center;
+	.lock {
+		position: absolute;
+		width: 22px;
 		height: 22px;
+		margin-left: -11px;
+		margin-top: -11px;
+		border: 2px solid rgba(255, 255, 255, 0.9);
+		border-radius: 11px;
 	}
 
-	.key {
-		width: 90px;
-		color: rgba(255, 255, 255, 0.55);
+	/* ---------- crosshair ---------- */
+
+	.crosshair {
+		position: absolute;
+		left: 50%;
+		top: 50%;
+		width: 6px;
+		height: 6px;
+		margin-left: -3px;
+		margin-top: -3px;
+		border-radius: 3px;
+		background-color: white;
+		box-shadow: 0px 0px 4px rgba(0, 0, 0, 0.8);
+		transition: all 0.08s ease-out;
 	}
 
-	.bar {
-		width: 180px;
+	/* a small kick while a punch is out, so the centre of the screen feels the swing too */
+	.crosshair.punch {
+		width: 10px;
 		height: 10px;
-		background-color: rgba(255, 255, 255, 0.15);
-		margin-right: 10px;
+		margin-left: -5px;
+		margin-top: -5px;
+		border-radius: 5px;
+		background-color: rgba(255, 255, 255, 0.85);
 	}
 
-	.fill {
+	/* ---------- stamina: small, under the crosshair, gone when full ---------- */
+
+	.stamina {
+		position: absolute;
+		left: 50%;
+		top: 50%;
+		width: 150px;
+		height: 6px;
+		margin-left: -75px;
+		margin-top: 40px;
+		background-color: rgba(0, 0, 0, 0.55);
+		border: 1px solid rgba(255, 255, 255, 0.12);
+		border-radius: 3px;
+		overflow: hidden;
+	}
+
+	.stamina .fill,
+	.stamina .trail {
+		position: absolute;
+		left: 0px;
+		top: 0px;
+		height: 100%;
+		border-radius: 3px;
+	}
+
+	.stamina .trail { background-color: rgba(255, 255, 255, 0.25); }
+	.stamina .fill {
+		background: linear-gradient(to bottom, #e4e7ea, #a9aeb3);
+		transition: width 0.08s linear;
+	}
+
+	.stamina.winded { border-color: rgba(220, 80, 60, 0.7); }
+	.stamina.winded .fill { background: linear-gradient(to bottom, #8b8f94, #5f6368); }
+
+	/* the on-beat of the winded blink: the whole bar lights up red */
+	.stamina.blink {
+		border-color: rgba(255, 90, 70, 1);
+		background-color: rgba(140, 25, 18, 0.75);
+	}
+
+	.stamina.blink .fill { background: linear-gradient(to bottom, #ff7a66, #d23a2a); }
+
+	.winded-text {
+		position: absolute;
+		left: 50%;
+		top: 50%;
+		width: 150px;
+		margin-top: 52px;
+		flex-direction: row;
+		justify-content: center;
+		font-size: 12px;
+		font-weight: 700;
+		letter-spacing: 3px;
+		color: rgba(255, 106, 92, 0.55);
+		text-shadow: 0px 1px 3px rgba(0, 0, 0, 0.9);
+	}
+
+	.winded-text.blink { color: rgba(255, 120, 105, 1); }
+
+	/* "press E to pick up / throw": plain white, right under the crosshair. The stamina bar and its warning sit
+	   below it, so nothing overlaps */
+	.prompt {
+		position: absolute;
+		left: 0px;
+		top: 50%;
+		width: 100%;
+		margin-top: 12px;
+		flex-direction: row;
+		justify-content: center;
+		font-size: 16px;
+		letter-spacing: 2px;
+		color: white;
+		text-shadow: 0px 1px 4px rgba(0, 0, 0, 0.9);
+	}
+
+	/* ---------- health: big, bottom centre ---------- */
+
+	.health {
+		position: absolute;
+		left: 50%;
+		bottom: 44px;
+		width: 520px;
+		margin-left: -260px;
+		flex-direction: column;
+	}
+
+	.health .labels {
+		flex-direction: row;
+		justify-content: space-between;
+		margin-bottom: 5px;
+		padding: 0px 2px;
+		text-shadow: 0px 1px 3px rgba(0, 0, 0, 0.9);
+	}
+
+	.health .name {
+		font-size: 12px;
+		font-weight: 700;
+		letter-spacing: 3px;
+		color: rgba(255, 255, 255, 0.6);
+	}
+
+	.health .value {
+		font-size: 14px;
+		font-weight: 700;
+		color: white;
+	}
+
+	.health.low .value { color: #ff6a5c; }
+
+	.health .bar {
+		position: relative;
+		width: 100%;
+		height: 18px;
+		background-color: rgba(0, 0, 0, 0.6);
+		border: 2px solid rgba(255, 70, 55, 0.15);
+		border-radius: 4px;
+		overflow: hidden;
+		box-shadow: 0px 2px 10px rgba(0, 0, 0, 0.6);
+	}
+
+	.health .fill,
+	.health .trail,
+	.health .shine {
+		position: absolute;
+		left: 0px;
+		top: 0px;
 		height: 100%;
 	}
 
-	.health { background-color: #e0483c; }
-	.stamina { background-color: #e8d24a; }
-	.winded { background-color: #8a5a2a; }
+	/* the chunk you just lost, lingering a moment before it drains after the real bar */
+	.health .trail { background-color: rgba(255, 215, 200, 0.75); }
 
-	.val {
-		width: 110px;
+	.health .fill {
+		background: linear-gradient(to bottom, #ff5a48, #c2231a);
+		transition: width 0.1s ease-out;
 	}
 
-	.val.wide {
-		width: 300px;
+	/* glassy highlight along the top half */
+	.health .shine {
+		width: 100%;
+		height: 45%;
+		background: linear-gradient(to bottom, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0));
+	}
+
+	/* notches every tenth, so a hit reads as a number of chunks at a glance */
+	.health .tick {
+		position: absolute;
+		top: 0px;
+		margin-left: -1px;
+		width: 2px;
+		height: 100%;
+		background-color: rgba(0, 0, 0, 0.35);
 	}
 </style>
 
@@ -121,13 +278,49 @@
 	[Property, Description( "Optional. Found automatically from whatever has RBPlayerMovement on it." )]
 	public GameObject Player { get; set; }
 
+	[Property, Group( "Feel" ), Description( "Below this fraction of health the bar starts pulsing." )]
+	public float LowHealthFraction { get; set; } = 0.3f;
+
+	[Property, Group( "Feel" ), Description( "How long the pale 'just lost' chunk of the health bar hangs before draining away." )]
+	public float TrailDelay { get; set; } = 0.45f;
+
+	[Property, Group( "Feel" ), Description( "How fast the trail drains once it goes, in bars per second." )]
+	public float TrailSpeed { get; set; } = 0.8f;
+
+	[Property, Group( "Feel" ), Description( "Seconds the stamina bar stays up after it fills, before fading out of the way." )]
+	public float StaminaHideDelay { get; set; } = 1f;
+
+	[Property, Group( "Winded" ), Range( 0f, 1f ), Description( "How dark the edges get as you run low, just before you're out. Where 'low' starts is the Stamina component's Low Fraction, shared with the camera sway." )]
+	public float LowStaminaDarkness { get; set; } = 0.4f;
+
+	[Property, Group( "Winded" ), Range( 0f, 1f ), Description( "How dark the edges get while you're winded — out of wind, and locked out of attacking until it comes back. They breathe a little either side of this." )]
+	public float WindedDarkness { get; set; } = 0.8f;
+
+	[Property, Group( "Winded" ), Description( "How long the edges flash dark, and the stamina bar shakes, when you press something you haven't the wind for." )]
+	public float RefusedFlashTime { get; set; } = 0.35f;
+
+	[Property, Group( "Winded" ), Description( "Blinks per second of the stamina bar while you're winded, and of the WINDED / LOW STAMINA text." )]
+	public float BlinkRate { get; set; } = 4f;
+
+	[Property, Group( "Winded" ), Description( "Red flashes per second of the stamina bar when you press an attack you haven't the wind for. It flashes for Refused Flash Time, so at 10 and 0.35 that's three or four flashes." )]
+	public float RefusedBlinkRate { get; set; } = 10f;
+
 	Health health;
 	PlayerHealth playerHealth;
-	RBPlayerMovement movement;
-	Sliding sliding;
 	Stamina stamina;
-	PlayerGrab grab;
 	PlayerCombat combat;
+	LockOn lockOn;
+	PlayerGrab grab;
+
+	float healthTrail = 1f;
+	float staminaTrail = 1f;
+	float lastHealth = 1f;
+	float lastStamina = 1f;
+	float staminaAlpha;
+	float tiredAlpha;
+	TimeSince timeSinceHealthDrop;
+	TimeSince timeSinceStaminaDrop;
+	TimeSince timeSinceStaminaFull;
 
 	protected override void OnStart() => Rebind();
 
@@ -136,6 +329,94 @@
 		// the player may not exist yet on the first frame, or may get rebuilt while testing
 		if ( !Player.IsValid() )
 			Rebind();
+
+		healthTrail = Follow( healthTrail, HealthFraction, ref lastHealth, ref timeSinceHealthDrop );
+		staminaTrail = Follow( staminaTrail, StaminaFraction, ref lastStamina, ref timeSinceStaminaDrop );
+
+		// out of the way while there's nothing to say, straight back the moment any is spent
+		bool full = StaminaFraction >= 0.999f;
+
+		if ( !full )
+			timeSinceStaminaFull = 0;
+
+		float wanted = full && timeSinceStaminaFull > StaminaHideDelay ? 0f : 1f;
+		staminaAlpha = staminaAlpha.LerpTo( wanted, 1f - MathF.Exp( -( wanted > staminaAlpha ? 20f : 4f ) * Time.Delta ) );
+
+		// quick to darken, slower to clear, so getting your breath back reads as a recovery rather than a switch
+		float tired = Tiredness;
+		tiredAlpha = tiredAlpha.LerpTo( tired, 1f - MathF.Exp( -( tired > tiredAlpha ? 12f : 3f ) * RealTime.Delta ) );
+	}
+
+	/// <summary>
+	/// How dark the edges of the screen should be: creeping in as the stamina runs low (its Tiredness, the same the
+	/// camera sway follows), dark and breathing while you're winded, and a sharp flash the moment a press is refused
+	/// for want of wind.
+	/// </summary>
+	float Tiredness
+	{
+		get
+		{
+			if ( !stamina.IsValid() || KnockedOut )
+				return 0f;
+
+			float dark = Winded
+				? WindedDarkness * ( 0.85f + 0.15f * MathF.Sin( RealTime.Now * 3f ) )
+				: LowStaminaDarkness * stamina.Tiredness;
+
+			return MathF.Max( dark, RefusedFlash );
+		}
+	}
+
+	/// <summary>1 the instant a press is refused, fading to nothing over RefusedFlashTime.</summary>
+	float RefusedFlash => stamina.IsValid() && RefusedFlashTime > 0f
+		? MathF.Max( 0f, 1f - stamina.TimeSinceRefused / RefusedFlashTime )
+		: 0f;
+
+	// the on-beat of the blink, BlinkRate times a second
+	bool BlinkBeat => MathF.Sin( RealTime.Now * BlinkRate * MathF.PI * 2f ) > 0f;
+
+	// on-beat of the winded blink
+	bool Blink => Winded && BlinkBeat;
+
+	/// <summary>
+	/// A press you hadn't the wind for: the bar flashes red a few times over RefusedFlashTime. Starts on the red, so
+	/// the very frame you press it's already telling you why nothing happened.
+	/// </summary>
+	bool RefusedBlink => RefusedFlash > 0f && MathF.Sin( stamina.TimeSinceRefused * RefusedBlinkRate * MathF.PI * 2f ) >= 0f;
+
+	// the bar is lit red: blinking while winded, or flashing on a refused press
+	bool BarRed => Blink || RefusedBlink;
+
+	/// <summary>The word under the bar: WINDED once you've run dry, LOW STAMINA below the stamina's Low Fraction, else nothing.</summary>
+	string StaminaWarning => Winded ? "WINDED"
+		: stamina.IsValid() && !KnockedOut && stamina.Tiredness > 0f ? "LOW STAMINA"
+		: null;
+
+	// the word blinks on the same beat either way, and lights up with the bar's refused flash too
+	bool TextBlink => BlinkBeat || RefusedBlink;
+
+	// a sideways shiver of the bar when a press is refused, dying away over the flash
+	float StaminaShake => RefusedFlash * RefusedFlash * 7f * MathF.Sin( RealTime.Now * 70f );
+
+	/// <summary>
+	/// A trail that snaps up with the bar, but on a loss hangs where it was for TrailDelay and then drains
+	/// down after it — the pale chunk that shows how much that hit just took.
+	/// </summary>
+	float Follow( float trail, float value, ref float last, ref TimeSince sinceDrop )
+	{
+		// every fresh loss restarts the hang, so a flurry builds one long pale chunk
+		if ( value < last - 0.0001f )
+			sinceDrop = 0;
+
+		last = value;
+
+		if ( value >= trail )
+			return value;
+
+		if ( sinceDrop > TrailDelay )
+			return MathF.Max( value, trail - TrailSpeed * Time.Delta );
+
+		return trail;
 	}
 
 	void Rebind()
@@ -149,15 +430,60 @@
 
 		health = Player.Components.Get<Health>( search );
 		playerHealth = Player.Components.Get<PlayerHealth>( search );
-		movement = Player.Components.Get<RBPlayerMovement>( search );
-		sliding = Player.Components.Get<Sliding>( search );
 		stamina = Player.Components.Get<Stamina>( search );
-		grab = Player.Components.Get<PlayerGrab>( search );
 		combat = Player.Components.Get<PlayerCombat>( search );
+		lockOn = Player.Components.Get<LockOn>( search );
+		grab = Player.Components.Get<PlayerGrab>( search );
 	}
+
+	/// <summary>What E does right now, spelled out: throw what's in your hands, or pick up what you're looking at. Null for nothing.</summary>
+	string GrabPrompt => !grab.IsValid() ? null
+		: grab.CanThrow ? "PRESS E TO THROW"
+		: grab.GrabTarget is not null ? "PRESS E TO PICK UP"
+		: null;
+
+	// styles are written with an invariant decimal point: a locale that writes 12,5 turns them into nonsense
+	static string Num( float value ) => value.ToString( "0.###", CultureInfo.InvariantCulture );
+	static string Pct( float fraction ) => Num( fraction.Clamp( 0f, 1f ) * 100f ) + "%";
+
+	/// <summary>Where the locked target's aim point sits on screen, as fractions of it. Null with no lock, or with him behind the camera.</summary>
+	Vector2? LockScreen
+	{
+		get
+		{
+			if ( !lockOn.IsValid() || !lockOn.IsLocked || !Scene.Camera.IsValid() )
+				return null;
+
+			var point = Scene.Camera.PointToScreenNormal( lockOn.AimPoint, out bool behind );
+			return behind ? null : point;
+		}
+	}
+
+	bool LockVisible => LockScreen.HasValue;
+
+	string LockStyle
+	{
+		get
+		{
+			var point = LockScreen ?? Vector2.Zero;
+			return $"left: {Num( point.x * 100f )}%; top: {Num( point.y * 100f )}%;";
+		}
+	}
+
+	RunManager run;
+	RunManager Run => run.IsValid() ? run : ( run = Scene.GetAllComponents<RunManager>().FirstOrDefault() );
+
+	/// <summary>At the bar you're choosing drinks, not fighting; down or done, the run's black screen has the floor.</summary>
+	bool Hidden => Run.IsValid() && ( Run.AtTheBar || Run.Phase is RunPhase.Down or RunPhase.Over );
 
 	float HealthFraction => health.IsValid() ? health.Fraction : 0f;
 	bool KnockedOut => playerHealth.IsValid() && playerHealth.IsKnockedOut;
+	bool LowHealth => health.IsValid() && HealthFraction <= LowHealthFraction && !KnockedOut;
+
+	// 0–1 heartbeat on the bar's border while low, so you feel it without having to look down
+	float LowPulse => LowHealth ? 0.5f + 0.5f * MathF.Sin( RealTime.Now * 6f ) : 0f;
+
+	bool Attacking => combat.IsValid() && combat.IsAttacking;
 
 	// in first person you never see yourself get hit, so the screen has to say it
 	float HurtFlash
@@ -173,77 +499,19 @@
 			return MathF.Max( 0f, 1f - playerHealth.TimeSinceHurt / 0.4f );
 		}
 	}
+
 	float StaminaFraction => stamina.IsValid() ? stamina.Fraction : 0f;
 	bool Winded => stamina.IsValid() && stamina.IsExhausted;
 
-	string HealthText => health.IsValid()
-		? $"{health.CurrentHealth:0} / {health.MaxHealth:0}"
-		: "no Health";
-
-	string StaminaText => stamina.IsValid()
-		? ( Winded ? $"{stamina.Current:0} WINDED" : $"{stamina.Current:0} / {stamina.MaxStamina:0}" )
-		: "no Stamina";
-
-	string HoldingText => !grab.IsValid()
-		? "no PlayerGrab"
-		: grab.IsHolding ? grab.Held.GameObject.Name : "empty";
-
-	string ActionText
-	{
-		get
-		{
-			if ( KnockedOut )
-				return "on the floor";
-
-			// The dodge is gone — dash, slide and the rest are separate components now, so the
-			// readout reports which one currently owns your velocity. Worth more than "dodging"
-			// ever was while tuning: when the movement feels wrong, this says who to blame.
-			if ( movement.IsValid() )
-			{
-				if ( movement.IsGroundPounding ) return "pounding";
-				if ( movement.IsGrindingNow ) return "grinding";
-				if ( sliding.IsValid() && sliding.sliding ) return "sliding";
-				if ( movement.InSpecialMovement ) return "airborne";
-			}
-
-			if ( !combat.IsValid() )
-				return "no PlayerCombat";
-
-			if ( grab.IsValid() && grab.IsHolding )
-				return "holding — E throws";
-
-			return combat.IsAttacking ? combat.CurrentAttack.ToString().ToLower() : "ready";
-		}
-	}
-
-	string EnemyText
-	{
-		get
-		{
-			var enemies = Scene.GetAllComponents<Enemy>().ToList();
-			int alive = enemies.Count( e => e.State != EnemyState.Dead );
-			int staggered = enemies.Count( e => e.State == EnemyState.Staggered );
-
-			// swinging vs circling is the whole point of the director, so it belongs on screen where
-			// you can see whether the turn-taking is actually doing anything
-			int swinging = enemies.Count( e => e.State is EnemyState.Engaging or EnemyState.Windup or EnemyState.Recover );
-
-			string text = $"{alive} up, {swinging} swinging";
-
-			if ( staggered > 0 )
-				text += $", {staggered} down";
-
-			return text;
-		}
-	}
+	string HealthText => health.IsValid() ? $"{health.CurrentHealth:0}" : "–";
 
 	protected override int BuildHash() => System.HashCode.Combine(
-		(int)( HealthFraction * 100f ),
-		(int)( StaminaFraction * 100f ),
+		(int)( HealthFraction * 200f ),
+		(int)( healthTrail * 200f ),
+		(int)( StaminaFraction * 200f ),
+		(int)( staminaTrail * 200f ),
+		(int)( staminaAlpha * 30f ),
 		(int)( HurtFlash * 20f ),
-		KnockedOut,
-		Winded,
-		HoldingText,
-		ActionText,
-		EnemyText );
+		(int)( LowPulse * 20f ),
+		System.HashCode.Combine( KnockedOut, Attacking, LockVisible ? LockStyle : "", Hidden, (int)( tiredAlpha * 40f ), BarRed, (int)StaminaShake, System.HashCode.Combine( StaminaWarning, TextBlink, GrabPrompt ) ) );
 }

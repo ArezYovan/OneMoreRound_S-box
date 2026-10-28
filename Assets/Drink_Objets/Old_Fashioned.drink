@@ -1,0 +1,32 @@
+{
+  "Name": "Old Fashioned",
+  "Flavour": "Bourbon, bitters, sugar",
+  "Upsides": [
+    "+20% damage on every punch and kick",
+    "+15% stagger on every hit"
+  ],
+  "Downsides": [],
+  "Effects": [
+    {
+      "Stat": "MeleeDamage",
+      "Percent": 20,
+      "Flat": 0
+    },
+    {
+      "Stat": "Stagger",
+      "Percent": 15,
+      "Flat": 0
+    }
+  ],
+  "Rarity": "Purple",
+  "Weight": 1,
+  "OnePerNight": false,
+  "Price": 36,
+  "Tint": "1,1,1,1",
+  "Model": {
+    "Id": "8e9a2cfc-00ec-4ebe-b272-7f5ac8bed9a0",
+    "Path": "models/bottle_models/glass_cup/glass_yellow.vmdl"
+  },
+  "__references": [],
+  "__version": 0
+}

@@ -1,0 +1,26 @@
+{
+  "Name": "Root Beer",
+  "Flavour": "Tastes like medicine, in a good way",
+  "Upsides": [
+    "+10 max health"
+  ],
+  "Downsides": [],
+  "Effects": [
+    {
+      "Stat": "MaxHealth",
+      "Percent": 0,
+      "Flat": 10
+    }
+  ],
+  "Rarity": "Blue",
+  "Weight": 1,
+  "OnePerNight": false,
+  "Price": 14,
+  "Tint": "1,1,1,1",
+  "Model": {
+    "Id": "4aad9a70-0659-472d-9f56-7db6728248f4",
+    "Path": "models/bottle_models/can_red.vmdl"
+  },
+  "__references": [],
+  "__version": 0
+}

@@ -1,0 +1,33 @@
+{
+  "Name": "Bank Shot",
+  "Flavour": "Beer",
+  "Upsides": [
+    "Anything you throw that hits a man flies on to the nearest other one"
+  ],
+  "Downsides": [
+    "Thrown things do 25% less damage"
+  ],
+  "Effects": [
+    {
+      "Stat": "Ricochet",
+      "Percent": 0,
+      "Flat": 1
+    },
+    {
+      "Stat": "ThrowDamage",
+      "Percent": -25,
+      "Flat": 0
+    }
+  ],
+  "Rarity": "Gold",
+  "Weight": 1,
+  "OnePerNight": true,
+  "Price": 45,
+  "Tint": "1,1,1,1",
+  "Model": {
+    "Id": "80c795f2-29a5-4720-8f6f-37c2ed3b048f",
+    "Path": "models/bottle_models/beer_bottle.vmdl"
+  },
+  "__references": [],
+  "__version": 0
+}

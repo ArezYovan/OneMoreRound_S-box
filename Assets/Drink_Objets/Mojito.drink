@@ -1,0 +1,32 @@
+{
+  "Name": "Mojito",
+  "Flavour": "Rum, lime, mint",
+  "Upsides": [
+    "+12% move speed",
+    "Dashes carry you 20% further"
+  ],
+  "Downsides": [],
+  "Effects": [
+    {
+      "Stat": "MoveSpeed",
+      "Percent": 12,
+      "Flat": 0
+    },
+    {
+      "Stat": "DashDistance",
+      "Percent": 20,
+      "Flat": 0
+    }
+  ],
+  "Rarity": "Purple",
+  "Weight": 1,
+  "OnePerNight": false,
+  "Price": 30,
+  "Tint": "1,1,1,1",
+  "Model": {
+    "Id": "5b3aaec4-4b8d-4427-833e-9b8dea0a9e0d",
+    "Path": "models/bottle_models/glass_cup/glass_water.vmdl"
+  },
+  "__references": [],
+  "__version": 0
+}

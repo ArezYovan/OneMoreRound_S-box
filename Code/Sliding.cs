@@ -20,6 +20,13 @@ public sealed class Sliding : Component
 	// How sharply you can steer/carve the slide. Higher = turns faster. Speed is preserved.
 	[Property] public float slideSteerStrength { get; set; } = 4f;
 
+	[Header("Air Kick")]
+	// Upward speed the slide starts with, so it leaves the floor like a flying kick and carries the entry boost
+	// through the air before it settles into the slide. 0 slides straight along the ground.
+	[Property] public float slideHopSpeed { get; set; } = 200f;
+	// Seconds the hop hangs on plain gravity before the extra fall weight comes back. Longer floats further.
+	[Property] public float slideHopFloatTime { get; set; } = 0.35f;
+
 	[Header("Slope Sliding")]
 	// Extra push down the slope while descending — this is what makes downhill slides fun.
 	[Property] public float slopeSlideAccel { get; set; } = 15f;
@@ -46,9 +53,20 @@ public sealed class Sliding : Component
 	[Property] public CameraMovement camMovement { get; set; }
 	[Property] public bool sliding { get; set; }
 
-	// Player Scale Values
-	private float slideZScale { get; set; }
-	private float startZScale { get; set; }
+	[Header("Body")]
+	// The animated body. The slide pose comes from the animgraph, so the mesh is never scaled.
+	// Auto-found on PlayerObj if unset.
+	[Property] public SkinnedModelRenderer Renderer { get; set; }
+	// Animgraph bool that plays the slide.
+	[Property] public string SlideParameter { get; set; } = "IsSliding";
+	// The hitbox that shrinks while sliding so you fit under things. Auto-found on PlayerObj.
+	[Property] public BoxCollider Hull { get; set; }
+	// Hull height while sliding, as a fraction of standing height. The bottom stays on the floor.
+	[Property, Range( 0.2f, 1f )] public float slideHeightFraction { get; set; } = 0.5f;
+
+	// Standing hull, captured on awake.
+	private float standHeight;
+	private float hullBottom;
 
 	// Private variables
 	private float horizontalInput;
@@ -64,8 +82,14 @@ public sealed class Sliding : Component
 		orientation = playerMovement.Orientation;
 		Head = playerMovement.Head;
 
-		startZScale = PlayerObj.LocalScale.z;
-		slideZScale = PlayerObj.LocalScale.z / 2f;
+		Renderer ??= PlayerObj?.Components.Get<SkinnedModelRenderer>( FindMode.EverythingInSelfAndDescendants );
+		Hull ??= PlayerObj?.Components.Get<BoxCollider>( FindMode.EverythingInSelfAndDescendants );
+
+		if ( Hull.IsValid() )
+		{
+			standHeight = Hull.Scale.z;
+			hullBottom = Hull.Center.z - standHeight * 0.5f;
+		}
 	}
 
 	protected override void OnStart()
@@ -95,7 +119,7 @@ public sealed class Sliding : Component
 		// tolerates pressing a hair early; if you tapped-and-released in the air it must NOT
 		// fire a slide on touchdown — that would apply StartSlide's speed boost as a phantom
 		// one-frame launch before the stop check below cancels it.
-		if ( slideBufferTimer > 0f && !sliding && !playerMovement.IsGrindingNow && playerMovement.isGrounded && moving && Input.Down( "Duck" ) )
+		if ( slideBufferTimer > 0f && !sliding && playerMovement.isGrounded && moving && Input.Down( "Duck" ) )
 		{
 			StartSlide();
 			slideBufferTimer = 0f;
@@ -108,10 +132,6 @@ public sealed class Sliding : Component
 		// slopes, whose SlopeSlide path has no timer/speed auto-end, and while airborne, where
 		// SlidingMovement doesn't run). Down is re-checked every frame, so it can't get stuck.
 		if ( sliding && !Input.Down( "Duck" ) )
-			StopSlide();
-
-		// A rail grind owns the player — never slide while grinding.
-		if ( sliding && playerMovement.IsGrindingNow )
 			StopSlide();
 
 		// FOV push, re-requested every render frame while sliding (eases off on its own).
@@ -150,12 +170,17 @@ public sealed class Sliding : Component
 		boostSpeed = MathF.Max( boostSpeed, slideEntrySpeed );
 		rb.Velocity = (slideDir * boostSpeed).WithZ( rb.Velocity.z );
 
+		// Off the floor for a moment, air-kick style. The slide's own steering and friction only run on the
+		// ground, so the boost carries untouched until it lands.
+		if ( slideHopSpeed > 0f )
+			playerMovement.Hop( slideHopSpeed, slideHopFloatTime );
+
 		// The crouch (scale + head dip) is eased in by UpdateCrouchLerp, not snapped here.
 		slideTimer = maxSlideTime;
 	}
 
 	// Start a slide carrying an EXACT velocity, bypassing the normal entry boost and clamp.
-	// The velocity is used as-is (its vertical kept), so GroundPound can hand in flat momentum
+	// The velocity is used as-is (its vertical kept), so a caller can hand in flat momentum
 	// (z = 0) on flat ground, or a down-slope velocity on a slope so you flow down it.
 	public void BeginSlideWith( Vector3 velocity )
 	{
@@ -250,16 +275,34 @@ public sealed class Sliding : Component
 		// Crouch eases back out via UpdateCrouchLerp; FOV eases back once we stop requesting it.
 	}
 
-	// Eases the body scale and head height toward their slide/standing targets each frame
-	// so entering and leaving a slide looks smooth instead of snapping instantly.
+	// Eases the hull height and head height toward their slide/standing targets each frame
+	// so entering and leaving a slide looks smooth instead of snapping instantly. The mesh
+	// itself isn't touched — the animgraph's slide pose does the visual crouch.
 	private void UpdateCrouchLerp()
 	{
-		// Stay crouched if there's something overhead — standing up would clip into it.
-		bool standing = !sliding && CanStandUp();
+		// Only ever consult the headroom trace while we're ALREADY crouched. Its job is to
+		// hold a crouch under something, never to start one — so a standing player can't be
+		// dragged into the slide pose by a stray trace hit (e.g. the body punching a few units
+		// into the floor on a hard landing).
+		bool crouched = currentHeadDrop > 0.01f || (Hull.IsValid() && Hull.Scale.z < standHeight - 0.01f);
+		bool standing = !sliding && (!crouched || CanStandUp());
 
-		float targetScale = standing ? startZScale : slideZScale;
-		float newScale = MathX.Lerp( PlayerObj.LocalScale.z, targetScale, Time.Delta * crouchLerpSpeed );
-		PlayerObj.LocalScale = PlayerObj.LocalScale.WithZ( newScale );
+		// Keep the slide pose while stuck under something, so the mesh doesn't stand up
+		// through the ceiling.
+		if ( Renderer.IsValid() && !string.IsNullOrEmpty( SlideParameter ) )
+			Renderer.Set( SlideParameter, !standing );
+
+		if ( Hull.IsValid() )
+		{
+			float targetHeight = standing ? standHeight : standHeight * slideHeightFraction;
+			float height = MathX.Lerp( Hull.Scale.z, targetHeight, Time.Delta * crouchLerpSpeed );
+			// Only touch the collider while it's actually changing — each write rebuilds the shape.
+			if ( MathF.Abs( height - Hull.Scale.z ) > 0.01f )
+			{
+				Hull.Scale = Hull.Scale.WithZ( height );
+				Hull.Center = Hull.Center.WithZ( hullBottom + height * 0.5f );
+			}
+		}
 
 		// Track the applied head dip so we only ever add the per-frame delta (works
 		// regardless of the body moving underneath it) and always return exactly to zero.
@@ -269,20 +312,38 @@ public sealed class Sliding : Component
 		currentHeadDrop = newDrop;
 	}
 
-	// Room to stand? Already-standing passes trivially (the trace starts inside our own
-	// cleared space and we ignore our hierarchy).
+	// Room to stand? Only the band the crouched body does NOT already occupy is swept — from
+	// the top of the crouched hull up to the top of the standing hull. That band is exactly the
+	// space standing up would move into, and testing only it keeps the sweep a whole crouch
+	// height clear of the floor. Every earlier version started near the feet and lived or died
+	// on a few units of clearance: too low and you could never stand up, and even once tuned,
+	// the few units a landing punches the body into the ground still read as "something
+	// overhead" and forced the crouch pose on every touchdown.
 	private bool CanStandUp()
 	{
-		// Start the sweep a bit above the feet so the sphere begins clear of the floor we're
-		// standing on. The root rests only ~capsule-radius above the ground, which is LESS
-		// than this trace radius — starting at the feet made the trace begin inside the
-		// floor, which read as "something overhead" and kept the player crouched whenever
-		// they were grounded (standing up only mid-jump).
 		const float traceRadius = 14f;
-		Vector3 start = WorldPosition + Vector3.Up * (traceRadius + 2f);
+
+		// Hull geometry in world units, measured from the hull's own bottom — the root's offset
+		// from the floor depends on the rig, so the root is no use as a reference.
+		Vector3 feet = WorldPosition;
+		float standTop = standUpHeadroom;
+		if ( Hull.IsValid() )
+		{
+			float scale = Hull.WorldScale.z;
+			feet = Hull.WorldPosition + Vector3.Up * (hullBottom * scale);
+			standTop = standHeight * scale;
+		}
+		float crouchTop = standTop * slideHeightFraction;
+
+		// Sphere centres, so the swept volume spans exactly crouchTop..standTop. If that band is
+		// thinner than the sphere, test one sphere at its middle instead of inverting the sweep.
+		float startZ = crouchTop + traceRadius;
+		float endZ = standTop - traceRadius;
+		if ( endZ < startZ )
+			startZ = endZ = (crouchTop + standTop) * 0.5f;
 
 		return !Scene.Trace
-			.Ray( start, WorldPosition + Vector3.Up * standUpHeadroom )
+			.Ray( feet + Vector3.Up * startZ, feet + Vector3.Up * endZ )
 			.Radius( traceRadius )
 			.IgnoreGameObjectHierarchy( GameObject )
 			.Run()

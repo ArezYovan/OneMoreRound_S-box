@@ -1,0 +1,219 @@
+@using System
+@using System.Linq
+@using Sandbox
+@using Sandbox.UI
+@inherits PanelComponent
+
+@*
+	The front door. Two buttons and a title.
+
+	Play loads the bar; Quit closes the game. The cursor is shown here and handed back on the way out,
+	because it is a global that outlives this scene.
+*@
+
+<root>
+	<div class="menu">
+		<label class="title">ONE MORE ROUND</label>
+
+		<div class="buttons">
+			<button class="button @(Busy ? "busy" : "")" onclick=@Play>@PlayText</button>
+			<button class="button quiet" onclick=@Quit>QUIT</button>
+		</div>
+
+		<label class="hint">@Hint</label>
+	</div>
+
+	<div class="best"><label>YOUR HIGHEST SCORE: @HighScore.Best</label></div>
+</root>
+
+<style>
+	MainMenu {
+		position: absolute;
+		top: 0px;
+		left: 0px;
+		width: 100%;
+		height: 100%;
+		font-family: VCR OSD Mono;
+		color: white;
+		background-color: rgba(8, 6, 10, 0.92);
+		align-items: center;
+		justify-content: center;
+
+		/* the HUD panels all switch this off so clicks fall through to the game. A menu is the one place
+		   that has to catch them instead — without it the buttons are a picture of buttons */
+		pointer-events: all;
+	}
+
+	.menu {
+		flex-direction: column;
+		align-items: center;
+	}
+
+	.title {
+		font-size: 64px;
+		letter-spacing: 6px;
+		color: rgba(255, 236, 200, 1);
+		text-shadow: 0px 4px 12px rgba(0, 0, 0, 0.8);
+		margin-bottom: 44px;
+	}
+
+	.buttons {
+		flex-direction: column;
+		align-items: center;
+	}
+
+	.button {
+		width: 320px;
+		height: 56px;
+		margin-bottom: 14px;
+		align-items: center;
+		justify-content: center;
+		font-size: 22px;
+		letter-spacing: 3px;
+		color: rgba(20, 16, 14, 1);
+		background-color: rgba(255, 236, 200, 1);
+		border-radius: 3px;
+		transition: all 0.1s ease-out;
+	}
+
+	.button:hover {
+		background-color: white;
+		transform: scale(1.03);
+	}
+
+	.button.quiet {
+		color: rgba(255, 255, 255, 0.6);
+		background-color: rgba(255, 255, 255, 0.08);
+	}
+
+	.button.quiet:hover {
+		color: white;
+		background-color: rgba(255, 255, 255, 0.16);
+	}
+
+	.button.busy {
+		opacity: 0.5;
+	}
+
+	/* bottom middle, out of the menu's own column so it never pushes the buttons about */
+	.best {
+		position: absolute;
+		bottom: 48px;
+		left: 0px;
+		width: 100%;
+		flex-direction: row;
+		justify-content: center;
+		font-size: 24px;
+		letter-spacing: 3px;
+		color: rgba(255, 236, 200, 1);
+		text-shadow: 0px 2px 8px rgba(0, 0, 0, 0.9);
+	}
+
+	.hint {
+		margin-top: 28px;
+		font-size: 15px;
+		color: rgba(255, 255, 255, 0.35);
+		max-width: 520px;
+		text-align: center;
+	}
+</style>
+
+@code
+{
+	[Property, Group( "Menu" ), Description( "The scene the bar lives in. Play loads this." )]
+	public SceneFile GameScene { get; set; }
+
+	[Property, Group( "Sound" ), Description( "Played when the pointer lands on a button." )]
+	public SoundEvent HoverSound { get; set; }
+
+	[Property, Group( "Sound" ), Description( "Played when PLAY or QUIT is pressed." )]
+	public SoundEvent PressSound { get; set; }
+
+	[Property, Group( "Sound" ), Description( "How long PLAY and QUIT wait after the press sound before loading the bar or closing the game — both cut every sound off, so without a beat the click is never heard. Only waits when a Press Sound is set." )]
+	public float PressDelay { get; set; } = 0.25f;
+
+	/// <summary>True from the moment Play is pressed until the scene actually changes, so it can't be pressed twice.</summary>
+	public bool Busy { get; private set; }
+
+	readonly HoverSounds hoverSounds = new();
+
+	// what a press is waiting to do once its sound has had a moment
+	Action pending;
+	TimeUntil timeUntilPending;
+
+	string PlayText => Busy ? "OPENING…" : "PLAY";
+
+	string Hint => Busy ? "opening the bar…" : "";
+
+	protected override void OnUpdate()
+	{
+		// s&box hides the cursor and hands the mouse to the camera as soon as a game is running, and this
+		// scene is a game like any other as far as that's concerned. Asked for every frame rather than once
+		// in OnStart, because anything else that wants the mouse back — loading the bar, alt-tabbing — takes
+		// it, and a menu you can't click is worse than no menu.
+		Mouse.Visibility = MouseVisibility.Visible;
+
+		hoverSounds.Update( Panel, HoverSound, "button" );
+
+		if ( pending is not null && timeUntilPending )
+		{
+			var action = pending;
+			pending = null;
+			action();
+		}
+	}
+
+	/// <summary>The press sound, then the action — straight away with no sound set, a beat later with one so it's heard.</summary>
+	void Press( Action action )
+	{
+		UiSound.Play( PressSound );
+
+		if ( PressSound is null || PressDelay <= 0f )
+		{
+			action();
+			return;
+		}
+
+		pending = action;
+		timeUntilPending = PressDelay;
+	}
+
+	void Play()
+	{
+		if ( Busy || pending is not null )
+			return;
+
+		if ( GameScene is null )
+		{
+			Log.Warning( "[Menu] no GameScene set on MainMenu — there's nowhere to go." );
+			return;
+		}
+
+		Busy = true;
+		Press( LoadGame );
+	}
+
+	void LoadGame()
+	{
+		// The cursor goes back to the game's own rules on the way out. It is a global that outlives this
+		// scene, and left forced Visible the fight would start with a loose pointer and a camera that won't
+		// turn — a visible cursor in s&box is an unlocked one, so Input.MouseDelta stays at zero.
+		Mouse.Visibility = MouseVisibility.Auto;
+
+		// swap the running scene out whole — see RunManager.QuitToMenu for what Scene.Load left behind
+		var options = new SceneLoadOptions();
+		options.SetScene( GameScene );
+		Game.ChangeScene( options );
+	}
+
+	void Quit()
+	{
+		// not Busy: that's what turns PLAY into "opening…", and this isn't opening anything
+		if ( Busy || pending is not null )
+			return;
+
+		Press( () => Game.Close() );
+	}
+
+	protected override int BuildHash() => HashCode.Combine( Busy, HighScore.Best );
+}

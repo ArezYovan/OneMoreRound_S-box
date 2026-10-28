@@ -1,0 +1,32 @@
+{
+  "Name": "Whiskey Sour",
+  "Flavour": "Whiskey, lemon, sugar",
+  "Upsides": [
+    "Hooks hit 25% harder",
+    "Your hits push men 20% further - enough for a hook to throw a man into his friends"
+  ],
+  "Downsides": [],
+  "Effects": [
+    {
+      "Stat": "HookDamage",
+      "Percent": 25,
+      "Flat": 0
+    },
+    {
+      "Stat": "Knockback",
+      "Percent": 20,
+      "Flat": 0
+    }
+  ],
+  "Rarity": "Purple",
+  "Weight": 1,
+  "OnePerNight": false,
+  "Price": 34,
+  "Tint": "1,1,1,1",
+  "Model": {
+    "Id": "8e9a2cfc-00ec-4ebe-b272-7f5ac8bed9a0",
+    "Path": "models/bottle_models/glass_cup/glass_yellow.vmdl"
+  },
+  "__references": [],
+  "__version": 0
+}

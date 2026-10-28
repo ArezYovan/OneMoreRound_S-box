@@ -1,0 +1,26 @@
+{
+  "Name": "Cola",
+  "Flavour": "Fizzy and sweet",
+  "Upsides": [
+    "+10% damage on every punch and kick"
+  ],
+  "Downsides": [],
+  "Effects": [
+    {
+      "Stat": "MeleeDamage",
+      "Percent": 10,
+      "Flat": 0
+    }
+  ],
+  "Rarity": "Blue",
+  "Weight": 1,
+  "OnePerNight": false,
+  "Price": 16,
+  "Tint": "1,1,1,1",
+  "Model": {
+    "Id": "4aad9a70-0659-472d-9f56-7db6728248f4",
+    "Path": "models/bottle_models/can_red.vmdl"
+  },
+  "__references": [],
+  "__version": 0
+}

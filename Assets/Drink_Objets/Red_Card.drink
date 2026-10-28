@@ -1,0 +1,33 @@
+{
+  "Name": "Red Card",
+  "Flavour": "Red wine",
+  "Upsides": [
+    "Unlocks the slide tackle: slide into a man and he goes flying, most of the way to a stagger"
+  ],
+  "Downsides": [
+    "The ref fines you: -15% payout for clearing a round"
+  ],
+  "Effects": [
+    {
+      "Stat": "SlideTackle",
+      "Percent": 0,
+      "Flat": 1
+    },
+    {
+      "Stat": "Payout",
+      "Percent": -15,
+      "Flat": 0
+    }
+  ],
+  "Rarity": "Gold",
+  "Weight": 1,
+  "OnePerNight": true,
+  "Price": 50,
+  "Tint": "1,1,1,1",
+  "Model": {
+    "Id": "9ce652ad-bf14-41ea-96c2-9900245f0b26",
+    "Path": "models/bottle_models/wine_bottle.vmdl"
+  },
+  "__references": [],
+  "__version": 0
+}

@@ -1,0 +1,174 @@
+@using System
+@using System.Globalization
+@using Sandbox
+@using Sandbox.UI
+@inherits PanelComponent
+
+<root style="opacity: @Num( alpha );">
+	<div class="health">
+		<div class="trail" style="width: @Pct( healthTrail );"></div>
+		<div class="fill" style="width: @Pct( HealthFraction );"></div>
+		<div class="shine"></div>
+	</div>
+
+	<div class="stagger @(Staggered ? "down" : "")">
+		<div class="fill" style="width: @Pct( StaggerFraction ); opacity: @Num( Staggered ? 0.55f + 0.45f * Blink : 1f );"></div>
+	</div>
+</root>
+
+<style>
+	EnemyNameplate {
+		font-family: VCR OSD Mono;
+		width: 100%;
+		height: 100%;
+		flex-direction: column;
+		justify-content: flex-end;
+		align-items: center;
+		padding: 0px 40px 20px 40px;
+		pointer-events: none;
+	}
+
+	.health,
+	.stagger {
+		position: relative;
+		width: 100%;
+		background-color: rgba(0, 0, 0, 0.65);
+		overflow: hidden;
+	}
+
+	.health {
+		height: 72px;
+		border: 5px solid rgba(0, 0, 0, 0.85);
+		border-radius: 10px;
+	}
+
+	.stagger {
+		width: 80%;
+		height: 30px;
+		margin-top: 12px;
+		border: 4px solid rgba(0, 0, 0, 0.85);
+		border-radius: 8px;
+	}
+
+	.fill,
+	.trail,
+	.shine {
+		position: absolute;
+		left: 0px;
+		top: 0px;
+		height: 100%;
+	}
+
+	/* the chunk the last hit took, hanging a moment before it drains after the real bar */
+	.health .trail { background-color: rgba(255, 225, 210, 0.85); }
+
+	.health .fill {
+		background: linear-gradient(to bottom, #ff5a48, #b81f16);
+		transition: width 0.1s ease-out;
+	}
+
+	.health .shine {
+		width: 100%;
+		height: 42%;
+		background: linear-gradient(to bottom, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0));
+	}
+
+	.stagger .fill {
+		background: linear-gradient(to bottom, #ffd35a, #e08a1e);
+		transition: width 0.1s ease-out;
+	}
+
+	/* down and grabbable: the bar goes white-hot and blinks, the cue that he's yours to pick up */
+	.stagger.down { border-color: rgba(255, 240, 200, 0.9); }
+	.stagger.down .fill { background: linear-gradient(to bottom, #ffffff, #ffe08a); }
+</style>
+
+@code {
+	[Property, Description( "Optional, found automatically on the enemy this panel sits under." )]
+	public Health Health { get; set; }
+
+	[Property, Description( "Optional, found automatically on the enemy this panel sits under." )]
+	public Stagger Stagger { get; set; }
+
+	[Property, Group( "Visibility" ), Description( "Show it on someone who hasn't been touched yet. Off, an untouched man stays clean and only the ones you've hit get a bar." )]
+	public bool ShowWhenFull { get; set; } = false;
+
+	[Property, Group( "Visibility" ), Description( "Fades out past this distance from the camera, so the back of the room isn't a wall of bars. Zero shows at any distance." )]
+	public float MaxDistance { get; set; } = 1500f;
+
+	[Property, Group( "Feel" ), Description( "How long the pale 'just lost' chunk hangs before draining." )]
+	public float TrailDelay { get; set; } = 0.4f;
+
+	[Property, Group( "Feel" ), Description( "How fast the trail drains once it goes, in bars per second." )]
+	public float TrailSpeed { get; set; } = 1f;
+
+	float healthTrail = 1f;
+	float lastHealth = 1f;
+	float alpha;
+	TimeSince timeSinceDrop;
+
+	protected override void OnStart()
+	{
+		Health ??= Components.Get<Health>( FindMode.Enabled | FindMode.InSelf | FindMode.InAncestors );
+		Stagger ??= Components.Get<Stagger>( FindMode.Enabled | FindMode.InSelf | FindMode.InAncestors );
+	}
+
+	protected override void OnUpdate()
+	{
+		float health = HealthFraction;
+
+		// every fresh loss restarts the hang, so a flurry builds one long pale chunk
+		if ( health < lastHealth - 0.0001f )
+			timeSinceDrop = 0;
+
+		lastHealth = health;
+
+		if ( health >= healthTrail )
+			healthTrail = health;
+		else if ( timeSinceDrop > TrailDelay )
+			healthTrail = MathF.Max( health, healthTrail - TrailSpeed * Time.Delta );
+
+		alpha = alpha.LerpTo( WantedAlpha, 1f - MathF.Exp( -10f * Time.Delta ) );
+	}
+
+	float WantedAlpha
+	{
+		get
+		{
+			if ( !Health.IsValid() || Health.IsDead )
+				return 0f;
+
+			bool untouched = HealthFraction >= 0.999f && StaggerFraction <= 0f && !Staggered;
+
+			if ( untouched && !ShowWhenFull )
+				return 0f;
+
+			if ( MaxDistance > 0f && Scene.Camera.IsValid() )
+			{
+				float distance = Scene.Camera.WorldPosition.Distance( WorldPosition );
+
+				// fades over the last fifth of the range rather than popping off
+				return ( ( MaxDistance - distance ) / ( MaxDistance * 0.2f ) ).Clamp( 0f, 1f );
+			}
+
+			return 1f;
+		}
+	}
+
+	float HealthFraction => Health.IsValid() ? Health.Fraction : 0f;
+	float StaggerFraction => Stagger.IsValid() ? ( Staggered ? 1f : Stagger.Fraction ) : 0f;
+	bool Staggered => Stagger.IsValid() && Stagger.IsStaggered;
+	float Blink => 0.5f + 0.5f * MathF.Sin( RealTime.Now * 14f );
+
+	// styles are written with an invariant decimal point: a locale that writes 12,5 turns them into nonsense
+	static string Num( float value ) => value.ToString( "0.###", CultureInfo.InvariantCulture );
+	static string Pct( float fraction ) => Num( fraction.Clamp( 0f, 1f ) * 100f ) + "%";
+
+	protected override int BuildHash() => System.HashCode.Combine(
+		(int)( HealthFraction * 200f ),
+		(int)( healthTrail * 200f ),
+		(int)( StaggerFraction * 200f ),
+		(int)( alpha * 30f ),
+		Staggered,
+		Staggered ? (int)( Blink * 10f ) : 0 );
+}

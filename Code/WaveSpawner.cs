@@ -57,6 +57,9 @@ public sealed class WaveSpawner : Component
 	/// <summary>The whole wave has arrived and nobody is left standing.</summary>
 	public bool IsCleared => WaveTotal > 0 && SpawnedCount >= WaveTotal && AliveCount == 0;
 
+	/// <summary>Fired once for each man this spawner brought in, the moment he dies, whoever did it. The run pays Kill Bounty off it.</summary>
+	public Action<Enemy> OnEnemyDied;
+
 	readonly record struct Arrival( Enemy Enemy, Health Health );
 
 	readonly List<Arrival> spawned = new();
@@ -79,7 +82,7 @@ public sealed class WaveSpawner : Component
 		timeSinceSpawn = SpawnInterval;
 
 		if ( !EnemyPrefab.IsValid() )
-			Log.Warning( $"[Wave] {GameObject.Name} has no EnemyPrefab — round {round} will never clear on its own. F1 skips it." );
+			Log.Warning( $"[Wave] {GameObject.Name} has no EnemyPrefab — round {round} will never clear on its own. L skips it." );
 	}
 
 	/// <summary>No more arrivals. Whoever is already in the room stays until Clear.</summary>
@@ -162,6 +165,10 @@ public sealed class WaveSpawner : Component
 
 		if ( QuietEnemies )
 			Quiet( go, enemy, hp );
+
+		// Health only ever dies once, so this fires once a man however many things hit the corpse after
+		if ( hp.IsValid() )
+			hp.OnDied += () => OnEnemyDied?.Invoke( enemy );
 
 		spawned.Add( new Arrival( enemy, hp ) );
 	}

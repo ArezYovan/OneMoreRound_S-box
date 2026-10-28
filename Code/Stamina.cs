@@ -25,6 +25,9 @@ public sealed class Stamina : Component
 	[Property, Group( "Regen" ), Description( "Once you bottom out you can't swing again until the bar reaches this fraction. Hysteresis on purpose: a hard floor with no recovery threshold turns exhaustion into a stutter instead of a pause." )]
 	public float RecoverFraction { get; set; } = 0.35f;
 
+	[Property, Group( "Low" ), Range( 0f, 1f ), Description( "Below this share of the bar you're running low: the screen edges start to darken and the camera to sway, before you've actually run dry. Most moves cost more than the last sliver of the bar, so this — not being winded — is what you'll usually feel." )]
+	public float LowFraction { get; set; } = 0.3f;
+
 	[Property, Group( "Debug" )] public bool LogStamina { get; set; } = true;
 
 	[Property, Group( "Debug" ), Description( "Corner readout. There's no UI yet and you can't tune a resource you can't see." )]
@@ -40,11 +43,30 @@ public sealed class Stamina : Component
 
 	public float Fraction => MaxStamina <= 0f ? 0f : ( Current / MaxStamina ).Clamp( 0f, 1f );
 
+	/// <summary>
+	/// How out of breath you are, 0–1: nothing with wind to spare, rising as the bar empties below LowFraction, and
+	/// all the way while winded. What the screen edges and the camera sway both follow, so they always agree.
+	/// </summary>
+	public float Tiredness => IsExhausted ? 1f
+		: LowFraction <= 0f ? 0f
+		: ( 1f - Fraction / LowFraction ).Clamp( 0f, 1f );
+
+	/// <summary>
+	/// Seconds since something asked for wind and was turned down — a punch, a dash or a block you couldn't pay for.
+	/// Every spend comes from a button press, so this is the moment you pressed and nothing happened; the HUD
+	/// flashes on it so a punch that didn't come out never reads as the game eating your input.
+	/// </summary>
+	public float TimeSinceRefused => timeSinceRefused;
+
 	TimeSince timeSinceSpend;
+	TimeSince timeSinceRefused;
 
 	protected override void OnAwake()
 	{
 		Current = MaxStamina;
+
+		// long ago, so nothing flashes on the first frame
+		timeSinceRefused = 100f;
 	}
 
 	/// <summary>Can you afford this right now? Doesn't spend anything.</summary>
@@ -54,7 +76,10 @@ public sealed class Stamina : Component
 	public bool TrySpend( float amount )
 	{
 		if ( !CanSpend( amount ) )
+		{
+			timeSinceRefused = 0;
 			return false;
+		}
 
 		Current = MathF.Max( 0f, Current - amount );
 		timeSinceSpend = 0;

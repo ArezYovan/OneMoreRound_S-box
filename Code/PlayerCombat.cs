@@ -26,8 +26,8 @@ public sealed class PlayerCombat : Component
 	[Property, Group( "References" ), Description( "Optional. Attacks are aimed down the camera. Falls back to this object's own rotation and a guessed eye height if unset." )]
 	public CameraMovement Look { get; set; }
 
-	[Property, Group( "References" ), Description( "Only used when Look is unset — how far up from this object's origin to swing from." )]
-	public float FallbackEyeHeight { get; set; } = 64f;
+	[Property, Group( "References" ), Description( "Only used when Look is unset — how far up from this object's origin to swing from. Match it to the Head's height on the rig; the citizen's 64 is a long way under the current one." )]
+	public float FallbackEyeHeight { get; set; } = 119f;
 
 	[Property, Group( "References" ), Description( "Optional, found automatically. While something is in your hands, throwing it is the attack — swinging a fist through a barstool you're holding looks broken." )]
 	public PlayerGrab Grab { get; set; }
@@ -86,6 +86,9 @@ public sealed class PlayerCombat : Component
 	[Property, Group( "Feel" ), Description( "A press this long before the current attack finishes still comes out, so mashing chains cleanly instead of eating inputs." )]
 	public float InputBufferTime { get; set; } = 0.15f;
 
+	[Property, Group( "Feel" ), Description( "Hold the attack button this long and it throws a hook instead of a jab. The hook comes out the instant the hold passes this; a tap throws its jab when you let go. Too short and quick taps come out as hooks, too long and the hook feels late." )]
+	public float HookHoldTime { get; set; } = 0.18f;
+
 	[Property, Group( "Feel" ), Description( "How long past its windup an animated attack keeps waiting for the hit event before landing anyway. A safety net, not a timing — if its warning shows up, the event is missing, misnamed, or placed later than this." )]
 	public float HitEventGrace { get; set; } = 0.3f;
 
@@ -95,11 +98,72 @@ public sealed class PlayerCombat : Component
 	[Property, Group( "Feel" ), Description( "How long something you launch stays dangerous. Short on purpose: a man still sliding a second after a kick is a nudge, not a hit — and an enemy is disarmed anyway the moment he's back on his feet." )]
 	public float LaunchArmedTime { get; set; } = 1f;
 
+	[Property, Group( "Drinks" ), Description( "Counter Punch: parry a man and your next hit while he's still reeling from it knocks him straight into a stagger, whatever his meter says. Unlocked by a drink; tick it here to try it without buying it." )]
+	public bool CounterPunch { get; set; }
+
+	[Property, Group( "Drinks" ), Description( "Bowling Ball: a man you kick flat into another knocks that one straight into a stagger. Only the kick — the hook's launch is too slow to read as bowling. Unlocked by a drink; tick it here to try it." )]
+	public bool BowlingBall { get; set; }
+
+	[Property, Group( "Drinks" ), Description( "Liquid Courage: the most extra melee damage low health gives you, in per cent. 0 is off; set by drinks. It grows as your health drops and is all there by LowHealthFraction." )]
+	public float CourageBonus { get; set; }
+
+	[Property, Group( "Drinks" ), Range( 0.05f, 1f ), Description( "Health fraction at which Liquid Courage is at its full bonus. At 0.2, a fifth of your health left is the whole +60%, and half your health is a little under half of it." )]
+	public float LowHealthFraction { get; set; } = 0.2f;
+
+	[Property, Group( "Hit Feel" ), Description( "Freeze-frame when a jab lands, in seconds. Short: the jab is a tap, not a thud." )]
+	public float JabHitStop { get; set; } = 0.03f;
+	[Property, Group( "Hit Feel" )] public float HookHitStop { get; set; } = 0.06f;
+	[Property, Group( "Hit Feel" ), Description( "The kick gets the longest freeze — the beat before he flies is most of what sells it." )]
+	public float KickHitStop { get; set; } = 0.1f;
+	[Property, Group( "Hit Feel" ), Description( "Game speed during a freeze. Not quite zero, so it reads as a jolt rather than a hitch." )]
+	public float HitStopScale { get; set; } = 0.05f;
+
+	[Property, Group( "Hit Feel" ), Description( "Camera shake when a jab lands, 0–1. The overall strength lives on CameraMovement's ShakeStrength." )]
+	public float JabShake { get; set; } = 0.2f;
+	[Property, Group( "Hit Feel" )] public float HookShake { get; set; } = 0.4f;
+	[Property, Group( "Hit Feel" )] public float KickShake { get; set; } = 0.6f;
+
+	[Property, Group( "Homing" ), Description( "Attacks home in on an enemy: you're carried the last stretch toward him as you swing, and the punch is aimed at him rather than wherever the camera happens to point. Off, every attack goes exactly where you look." )]
+	public bool Homing { get; set; } = true;
+
+	[Property, Group( "Homing" ), Description( "How far away an enemy can be and still be homed in on. Locked on, your target counts out to half again this." )]
+	public float HomingRange { get; set; } = 260f;
+
+	[Property, Group( "Homing" ), Description( "How far off where you're looking an enemy can be and still be picked, in degrees either side. Wide makes attacks forgiving; narrow keeps them where you aim." )]
+	public float HomingAngle { get; set; } = 35f;
+
+	[Property, Group( "Homing" ), Description( "Most a jab carries you toward its target. Enough to close the gap a jab's own push opens, so you can keep jabbing into a man as he backs off." )]
+	public float JabLunge { get; set; } = 70f;
+	[Property, Group( "Homing" )] public float HookLunge { get; set; } = 100f;
+	[Property, Group( "Homing" )] public float KickLunge { get; set; } = 110f;
+
+	[Property, Group( "Homing" ), Description( "How long the lunge takes. Short so it reads as stepping into the punch, not sliding." )]
+	public float LungeTime { get; set; } = 0.1f;
+
+	[Property, Group( "Homing" ), Description( "The lunge stops once you're this close to him, centre to centre, so you punch him rather than walk into him." )]
+	public float LungeStopDistance { get; set; } = 55f;
+
+	[Property, Group( "Homing" ), Description( "How high on him the punch is aimed, measured up from his FEET — his root is on the floor, not at his chest. This has to track the rigs: the swing runs from your eye down to this point, so a value well below your own eye height turns every homing punch into a dive and costs you most of your horizontal reach. Chest on the current enemy is about 100." )]
+	public float HomingAimHeight { get; set; } = 100f;
+
 	[Property, Group( "References" ), Description( "Optional, found automatically. Without one, attacks are free and never tire you out." )]
 	public Stamina Stamina { get; set; }
 
 	[Property, Group( "References" ), Description( "Optional, found automatically. A man on the floor doesn't get to keep punching." )]
 	public PlayerHealth PlayerHealth { get; set; }
+
+	[Property, Group( "Sound" ), Description( "Played the moment the jab is thrown, hit or miss." )]
+	public SoundEvent JabSwingSound { get; set; }
+	[Property, Group( "Sound" ), Description( "Played where the jab connects." )]
+	public SoundEvent JabHitSound { get; set; }
+	[Property, Group( "Sound" )] public SoundEvent HookSwingSound { get; set; }
+	[Property, Group( "Sound" )] public SoundEvent HookHitSound { get; set; }
+	[Property, Group( "Sound" )] public SoundEvent KickSwingSound { get; set; }
+	[Property, Group( "Sound" )] public SoundEvent KickHitSound { get; set; }
+	[Property, Group( "Sound" ), Description( "Played when a swing reaches the end of its reach without touching anything. Leave empty if the swing sound already sells the whiff." )]
+	public SoundEvent MissSound { get; set; }
+	[Property, Group( "Sound" ), Description( "Played when you press attack without the stamina to throw it." )]
+	public SoundEvent WindedSound { get; set; }
 
 	[Property, Group( "Debug" )] public bool LogAttacks { get; set; } = true;
 
@@ -115,6 +179,17 @@ public sealed class PlayerCombat : Component
 	public bool IsAttacking { get; private set; }
 	public MeleeAttack CurrentAttack { get; private set; }
 
+	/// <summary>True while an attack is carrying you into its target. RBPlayerMovement stands down for it, the same as for a dash.</summary>
+	public bool IsLunging { get; private set; }
+
+	/// <summary>Who this swing is homing in on, or null.</summary>
+	public Enemy HomingTarget { get; private set; }
+
+	Rigidbody ownBody;
+	LockOn lockOn;
+	Vector3 lungeVelocity;
+	TimeSince timeSinceLunge;
+
 	TimeSince timeSinceAttackStarted;
 	TimeSince timeSinceResolved;
 	bool resolved;
@@ -129,8 +204,23 @@ public sealed class PlayerCombat : Component
 	MeleeAttack? queued;
 	TimeSince timeSinceQueued;
 
+	// the attack button, read on the render tick: whether it's down, since when, and whether this hold has
+	// already turned into a hook
+	bool attackHeld;
+	bool heldIntoHook;
+	TimeSince timeSinceAttackPressed;
+
 	// read only for ActionsBlocked: the run holds you through movement's freeze, and punching obeys it too
 	RBPlayerMovement movement;
+
+	// your hands are either up or swinging, never both
+	PlayerBlock block;
+
+	// a slide is your legs out in front of you — there's no punch to throw from it
+	Sliding sliding;
+
+	// your own health, for Liquid Courage
+	Health ownHealth;
 
 	protected override void OnStart()
 	{
@@ -144,6 +234,12 @@ public sealed class PlayerCombat : Component
 		PlayerHealth ??= Components.Get<PlayerHealth>( FindMode.Enabled | FindMode.InSelf | FindMode.InDescendants );
 		Hands ??= Components.Get<HandAnimationHelper>( FindMode.Enabled | FindMode.InSelf | FindMode.InDescendants );
 		movement = Components.Get<RBPlayerMovement>( FindMode.Enabled | FindMode.InSelf | FindMode.InAncestors );
+		block = Components.Get<PlayerBlock>( FindMode.Enabled | FindMode.InSelf | FindMode.InAncestors );
+		sliding = Components.Get<Sliding>( FindMode.EverythingInSelf );
+		ownBody = Components.Get<Rigidbody>( FindMode.Enabled | FindMode.InSelf | FindMode.InAncestors );
+		lockOn = Components.Get<LockOn>( FindMode.Enabled | FindMode.InSelf | FindMode.InAncestors );
+		ownHealth = Components.Get<Health>( FindMode.Enabled | FindMode.InSelf | FindMode.InDescendants )
+			?? Components.Get<Health>( FindMode.Enabled | FindMode.InAncestors );
 
 		if ( Hands.IsValid() )
 			Hands.OnHitFrame += OnHandsHitFrame;
@@ -157,29 +253,77 @@ public sealed class PlayerCombat : Component
 
 	protected override void OnUpdate()
 	{
-		if ( PlayerHealth.IsValid() && PlayerHealth.IsKnockedOut )
+		if ( !CanReadAttacks() )
+		{
+			// a hold that began before you were stopped mustn't come out as a punch the moment you let go
+			attackHeld = false;
 			return;
+		}
+
+		// latched on the render tick, same as the jump in RBPlayerMovement — a click between
+		// two fixed updates would otherwise just vanish
+		ReadAttackButton();
+
+		if ( Input.Pressed( "Kick" ) )
+			Queue( MeleeAttack.Kick );
+	}
+
+	bool CanReadAttacks()
+	{
+		if ( PlayerHealth.IsValid() && PlayerHealth.IsKnockedOut )
+			return false;
 
 		// held by the run — the countdown, the bar, the end of the night. Movement and every ability
 		// already stop for this; without it you could still swing at thin air through the shop
 		if ( movement.IsValid() && movement.ActionsBlocked )
-			return;
+			return false;
 
-		if ( Grab.IsValid() && Grab.IsHolding )
-			return;
+		// hands busy holding the guard up. Switchable on the block itself, so both can be felt
+		if ( block.IsValid() && block.StopsAttacks && block.IsBlocking )
+			return false;
 
-		// latched on the render tick, same as the jump in RBPlayerMovement — a click between
-		// two fixed updates would otherwise just vanish
+		if ( IsSliding )
+			return false;
+
+		return !( Grab.IsValid() && Grab.IsHolding );
+	}
+
+	/// <summary>
+	/// One button, two punches. A tap is a jab, thrown when you let go; a hold becomes a hook the instant it passes
+	/// HookHoldTime, so the hook doesn't also wait for the release. The jab can't come out on the press itself —
+	/// until the button comes back up there's no telling which punch you meant.
+	/// </summary>
+	void ReadAttackButton()
+	{
 		if ( Input.Pressed( "Attack1" ) )
-			Queue( MeleeAttack.Jab );
-		else if ( Input.Pressed( "Attack2" ) )
+		{
+			attackHeld = true;
+			heldIntoHook = false;
+			timeSinceAttackPressed = 0;
+		}
+
+		if ( !attackHeld )
+			return;
+
+		if ( !heldIntoHook && timeSinceAttackPressed >= HookHoldTime )
+		{
+			heldIntoHook = true;
 			Queue( MeleeAttack.Hook );
-		else if ( Input.Pressed( "Kick" ) )
-			Queue( MeleeAttack.Kick );
+		}
+
+		if ( Input.Released( "Attack1" ) )
+		{
+			if ( !heldIntoHook )
+				Queue( MeleeAttack.Jab );
+
+			attackHeld = false;
+		}
 	}
 
 	protected override void OnFixedUpdate()
 	{
+		TickLunge();
+
 		if ( IsAttacking )
 		{
 			var stats = StatsFor( CurrentAttack );
@@ -202,6 +346,13 @@ public sealed class PlayerCombat : Component
 		if ( !queued.HasValue )
 			return;
 
+		// pressed just before the slide began: dropped, not saved to come out the moment you stand up
+		if ( IsSliding )
+		{
+			queued = null;
+			return;
+		}
+
 		// a buffered press waits out the current attack, but only for so long — otherwise a
 		// click you'd long since given up on fires by itself
 		if ( timeSinceQueued > InputBufferTime )
@@ -209,6 +360,8 @@ public sealed class PlayerCombat : Component
 		else if ( !IsAttacking )
 			TryBegin( queued.Value );
 	}
+
+	bool IsSliding => sliding.IsValid() && sliding.sliding;
 
 	void Queue( MeleeAttack attack )
 	{
@@ -226,6 +379,7 @@ public sealed class PlayerCombat : Component
 			// thrown away rather than left in the buffer: a punch that finally comes out a second
 			// later, the instant your wind returns, is a punch you stopped asking for
 			queued = null;
+			PlaySound( WindedSound, WorldPosition );
 
 			if ( LogAttacks )
 				Log.Info( $"[Combat] too winded to throw the {stats.Name.ToLower()}" );
@@ -248,6 +402,19 @@ public sealed class PlayerCombat : Component
 		// the hands are only ever told to swing from here, after the punch is paid for — so a punch
 		// you're too winded to throw can't play its clip and fire a hit event with nothing behind it
 		waitsForHitFrame = Hands.IsValid() && Hands.TryPlay( attack );
+
+		HomingTarget = Homing ? FindHomingTarget() : null;
+		StartLunge( attack );
+
+		// the counter is thrown: a parry's slow motion was only ever there to give you time to throw it
+		Scene.GetSystem<HitStop>().EndSlowMo();
+
+		PlaySound( attack switch
+		{
+			MeleeAttack.Hook => HookSwingSound,
+			MeleeAttack.Kick => KickSwingSound,
+			_ => JabSwingSound,
+		}, EyePosition );
 
 		if ( LogAttacks )
 		{
@@ -288,7 +455,7 @@ public sealed class PlayerCombat : Component
 	void Resolve( AttackStats stats )
 	{
 		var origin = EyePosition;
-		var forward = EyeForward;
+		var forward = AttackForward( origin );
 
 		// swept as a sphere rather than a ray so a fist has some width to it — a ray means
 		// clipping the edge of a target counts as a clean miss, which feels broken to play
@@ -301,6 +468,8 @@ public sealed class PlayerCombat : Component
 
 		if ( !trace.Hit || !trace.GameObject.IsValid() )
 		{
+			PlaySound( MissSound, origin + forward * stats.Range );
+
 			if ( LogAttacks )
 				Log.Info( $"[Combat] {stats.Name} missed" );
 
@@ -312,7 +481,10 @@ public sealed class PlayerCombat : Component
 		var stagger = hit.Components.Get<Stagger>( FindMode.Enabled | FindMode.InSelf | FindMode.InAncestors );
 		var body = hit.Components.Get<Rigidbody>( FindMode.Enabled | FindMode.InSelf | FindMode.InAncestors );
 
-		var direction = ( forward + Vector3.Up * stats.Lift ).Normal;
+		// pushed flat away from you, whatever the camera's pitch: looking down at a man shouldn't drive the
+		// blow into the floor and leave him standing there
+		var flat = forward.WithZ( 0 );
+		var direction = ( ( flat.IsNearlyZero() ? WorldRotation.Forward : flat.Normal ) + Vector3.Up * stats.Lift ).Normal;
 
 		// knockback before damage, so a killing blow still launches the thing it kills
 		float impulse = 0f;
@@ -322,7 +494,11 @@ public sealed class PlayerCombat : Component
 			// armed before it's launched, the same as a throw, so a man kicked point-blank into the one
 			// standing behind him still counts as a hit
 			if ( stats.Knockback >= LaunchKnockback )
-				body.GameObject.Components.GetOrCreate<ThrownObject>().Arm( GameObject, LaunchArmedTime );
+			{
+				var launched = body.GameObject.Components.GetOrCreate<ThrownObject>();
+				launched.Arm( GameObject, LaunchArmedTime );
+				launched.KnocksDown = BowlingBall && CurrentAttack == MeleeAttack.Kick;
+			}
 
 			float mass = ScaleKnockbackWithMass ? ( body.PhysicsBody?.Mass ?? 1f ) : 1f;
 			impulse = stats.Knockback * mass;
@@ -334,17 +510,209 @@ public sealed class PlayerCombat : Component
 
 		DrawImpact( trace.HitPosition, direction, impulse );
 
+		// the feel of it landing: a beat of freeze and a jolt of the view, sized to the attack
+		Scene.GetSystem<HitStop>().Freeze( HitStopFor( CurrentAttack ), HitStopScale );
+		Look?.Shake( ShakeFor( CurrentAttack ) );
+
+		PlaySound( CurrentAttack switch
+		{
+			MeleeAttack.Hook => HookHitSound,
+			MeleeAttack.Kick => KickHitSound,
+			_ => JabHitSound,
+		}, trace.HitPosition );
+
+		// Counter Punch: he's still reeling from your parry, so this one puts him down outright
+		var enemy = hit.Components.Get<Enemy>( FindMode.Enabled | FindMode.InSelf | FindMode.InAncestors );
+		bool counter = CounterPunch && stagger.IsValid() && enemy.IsValid() && enemy.State == EnemyState.Parried;
+
+		float damage = stats.Damage * CourageFactor;
+
 		// stagger before damage, so a blow that both staggers and kills still reports the stagger
-		stagger?.Add( stats.Stagger, GameObject );
-		health?.TakeDamage( stats.Damage, GameObject, trace.HitPosition, direction );
+		if ( counter )
+			stagger.ForceStagger( GameObject );
+		else
+			stagger?.Add( stats.Stagger, GameObject );
+
+		health?.TakeDamage( damage, GameObject, trace.HitPosition, direction, KindFor( CurrentAttack ) );
 
 		if ( LogAttacks )
 		{
-			string damaged = health.IsValid() ? $"{stats.Damage:0.#} damage" : "no Health";
-			string rocked = stagger.IsValid() ? $"+{stats.Stagger:0.#} stagger ({stagger.Fraction * 100f:0}%)" : "no Stagger";
+			string damaged = health.IsValid() ? $"{damage:0.#} damage{( CourageFactor > 1.001f ? $" (courage x{CourageFactor:0.00})" : "" )}" : "no Health";
+			string rocked = counter ? "COUNTER — staggered" : stagger.IsValid() ? $"+{stats.Stagger:0.#} stagger ({stagger.Fraction * 100f:0}%)" : "no Stagger";
 			string pushed = body.IsValid() ? $"impulse {impulse:0}" : "no Rigidbody";
 			Log.Info( $"[Combat] {stats.Name} hit {hit.Name} — {damaged}, {rocked}, {pushed}" );
 		}
+	}
+
+	/// <summary>
+	/// Liquid Courage's multiplier on melee damage: nothing at full health, rising as health drops, and the whole
+	/// CourageBonus from LowHealthFraction down.
+	/// </summary>
+	float CourageFactor
+	{
+		get
+		{
+			if ( CourageBonus <= 0f || !ownHealth.IsValid() )
+				return 1f;
+
+			float missing = 1f - ownHealth.Fraction;
+			float ramp = ( missing / MathF.Max( 1f - LowHealthFraction, 0.01f ) ).Clamp( 0f, 1f );
+
+			return 1f + CourageBonus * 0.01f * ramp;
+		}
+	}
+
+	/// <summary>
+	/// The enemy this swing homes in on: your lock-on target if you have one and he's in reach, otherwise
+	/// whoever is closest to where you're looking inside HomingRange and HomingAngle. Dead or out of sight
+	/// doesn't count.
+	/// </summary>
+	Enemy FindHomingTarget()
+	{
+		var eye = EyePosition;
+		var look = EyeForward.WithZ( 0 ).Normal;
+
+		if ( lockOn.IsValid() && lockOn.IsLocked && IsHomeable( lockOn.Target, HomingRange * 1.5f, 180f, eye, look ) )
+			return lockOn.Target;
+
+		Enemy best = null;
+		float bestScore = float.MaxValue;
+
+		foreach ( var enemy in Scene.GetAllComponents<Enemy>() )
+		{
+			if ( !IsHomeable( enemy, HomingRange, HomingAngle, eye, look ) )
+				continue;
+
+			var to = ( enemy.WorldPosition - WorldPosition ).WithZ( 0 );
+			float angle = Vector3.GetAngle( look, to.Normal );
+
+			// how far off your aim counts for as much as how far away: the man you're looking at wins
+			// over a closer one at the edge of the screen
+			float score = angle / MathF.Max( HomingAngle, 1f ) + to.Length / MathF.Max( HomingRange, 1f );
+
+			if ( score < bestScore )
+			{
+				bestScore = score;
+				best = enemy;
+			}
+		}
+
+		return best;
+	}
+
+	bool IsHomeable( Enemy enemy, float range, float maxAngle, Vector3 eye, Vector3 look )
+	{
+		if ( !enemy.IsValid() || enemy.State == EnemyState.Dead )
+			return false;
+
+		var to = ( enemy.WorldPosition - WorldPosition ).WithZ( 0 );
+
+		if ( to.Length > range || Vector3.GetAngle( look, to.Normal ) > maxAngle )
+			return false;
+
+		// no homing through walls: a punch that curves round a pillar onto someone you can't see is a bug
+		var trace = Scene.Trace.Ray( eye, AimPointOf( enemy ) )
+			.IgnoreGameObjectHierarchy( GameObject.Root )
+			.IgnoreGameObjectHierarchy( enemy.GameObject )
+			.Run();
+
+		return !trace.Hit;
+	}
+
+	Vector3 AimPointOf( Enemy enemy ) => enemy.WorldPosition + Vector3.Up * HomingAimHeight;
+
+	/// <summary>Down the camera, or straight at the homing target when there is one — that's what makes it land.</summary>
+	Vector3 AttackForward( Vector3 origin )
+	{
+		if ( !HomingTarget.IsValid() || HomingTarget.State == EnemyState.Dead )
+			return EyeForward;
+
+		var to = AimPointOf( HomingTarget ) - origin;
+		return to.IsNearlyZero() ? EyeForward : to.Normal;
+	}
+
+	/// <summary>
+	/// Carries you toward the homing target as the swing starts, far enough to close to LungeStopDistance and no
+	/// further than this attack's lunge. No target, or already close enough, and you stay where you are.
+	/// </summary>
+	void StartLunge( MeleeAttack attack )
+	{
+		IsLunging = false;
+
+		if ( !HomingTarget.IsValid() || !ownBody.IsValid() )
+			return;
+
+		var to = ( HomingTarget.WorldPosition - WorldPosition ).WithZ( 0 );
+		float distance = ( to.Length - LungeStopDistance ).Clamp( 0f, LungeFor( attack ) );
+
+		if ( distance < 1f )
+			return;
+
+		lungeVelocity = to.Normal * distance / MathF.Max( LungeTime, 0.01f );
+		timeSinceLunge = 0;
+		IsLunging = true;
+	}
+
+	/// <summary>Drops the lunge on the spot, speed and all left as it is — something else (a kick landing on you) has just taken over.</summary>
+	public void CancelLunge() => IsLunging = false;
+
+	void TickLunge()
+	{
+		if ( !IsLunging )
+			return;
+
+		bool arrived = HomingTarget.IsValid()
+			&& ( HomingTarget.WorldPosition - WorldPosition ).WithZ( 0 ).Length <= LungeStopDistance;
+
+		bool stopped = PlayerHealth.IsValid() && PlayerHealth.IsKnockedOut;
+
+		if ( timeSinceLunge >= LungeTime || arrived || stopped || !ownBody.IsValid() )
+		{
+			IsLunging = false;
+
+			// most of the speed shed on arrival, so you plant in front of him instead of skating on past
+			if ( ownBody.IsValid() )
+				ownBody.Velocity = ( ownBody.Velocity.WithZ( 0 ) * 0.2f ).WithZ( ownBody.Velocity.z );
+
+			return;
+		}
+
+		ownBody.Velocity = lungeVelocity.WithZ( ownBody.Velocity.z );
+	}
+
+	static HitKind KindFor( MeleeAttack attack ) => attack switch
+	{
+		MeleeAttack.Kick => HitKind.Launch,
+		MeleeAttack.Hook => HitKind.Heavy,
+		_ => HitKind.Light,
+	};
+
+	float LungeFor( MeleeAttack attack ) => attack switch
+	{
+		MeleeAttack.Hook => HookLunge,
+		MeleeAttack.Kick => KickLunge,
+		_ => JabLunge,
+	};
+
+	float HitStopFor( MeleeAttack attack ) => attack switch
+	{
+		MeleeAttack.Hook => HookHitStop,
+		MeleeAttack.Kick => KickHitStop,
+		_ => JabHitStop,
+	};
+
+	float ShakeFor( MeleeAttack attack ) => attack switch
+	{
+		MeleeAttack.Hook => HookShake,
+		MeleeAttack.Kick => KickShake,
+		_ => JabShake,
+	};
+
+	// an empty slot is just silence, so sounds can be filled in one at a time while trying them out
+	static void PlaySound( SoundEvent sound, Vector3 position )
+	{
+		if ( sound is not null )
+			Sfx.Play( sound, position );
 	}
 
 	Vector3 EyePosition => Look.IsValid()

@@ -1,0 +1,32 @@
+{
+  "Name": "Blue Lagoon",
+  "Flavour": "Vodka and blue curacao",
+  "Upsides": [
+    "Take about 17% less damage",
+    "+15 max health"
+  ],
+  "Downsides": [],
+  "Effects": [
+    {
+      "Stat": "Toughness",
+      "Percent": 20,
+      "Flat": 0
+    },
+    {
+      "Stat": "MaxHealth",
+      "Percent": 0,
+      "Flat": 15
+    }
+  ],
+  "Rarity": "Purple",
+  "Weight": 1,
+  "OnePerNight": false,
+  "Price": 34,
+  "Tint": "1,1,1,1",
+  "Model": {
+    "Id": "de53138c-e87a-41db-9dd9-a4aef8be3143",
+    "Path": "models/bottle_models/glass_cup/glass_blue.vmdl"
+  },
+  "__references": [],
+  "__version": 0
+}
